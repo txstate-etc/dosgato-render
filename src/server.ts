@@ -1,6 +1,6 @@
 import { Component, ResourceProvider, PageRecord, Page, ComponentData, PageData } from '@dosgato/templating'
 import { FastifyRequest } from 'fastify'
-import cookie from 'fastify-cookie'
+import cookie from '@fastify/cookie'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { createReadStream } from 'fs'
 import { api } from './api'
@@ -51,17 +51,6 @@ export class RenderingServer extends Server {
     )
 
     /**
-     * Route to serve launched web pages to anonymous users
-     */
-    this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
-      const { path, extension } = parsePath(req.params['*'])
-      if (!extension) return await res.redirect(301, `${path}.html`)
-      const page = await api.getLaunchedPage(req.hostname, path, schemaversion)
-      if (!page) throw new HttpError(404)
-      return await renderPage(req.headers, page, extension, false)
-    })
-
-    /**
      * Route for fetching CSS and JS from our registered templates, anonymous OK
      */
     this.app.get<{ Params: { '*': string, version: string, file: string } }>('/.resources/:version/:file', async (req, res) => {
@@ -94,6 +83,51 @@ export class RenderingServer extends Server {
         return await res.send(instream)
       }
       throw new HttpError(404)
+    })
+
+    /**
+     * Route for serving JS that supports the editing UI
+     */
+    this.app.get('/.editing/edit.js', async (req, res) => {
+      await res.header('Content-Type', 'application/javascript')
+      return `
+        window.dgEditing = {
+          send (action) {
+            const path = this.getAttribute('data-path')
+            window.postMessage({ action, path }, '*')
+          },
+          edit () {
+            send('edit')
+          },
+          move () {
+            send('move')
+          },
+          del () {
+            send('del')
+          }
+        }
+      `
+    })
+
+    /**
+     * Route for serving CSS that supports the editing UI
+     */
+    this.app.get('/.editing/edit.css', async (req, res) => {
+      await res.header('Content-Type', 'text/css')
+      return `
+
+      `
+    })
+
+    /**
+     * Route to serve launched web pages to anonymous users
+     */
+    this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
+      const { path, extension } = parsePath(req.params['*'])
+      if (!extension) return await res.redirect(301, `${path}.html`)
+      const page = await api.getLaunchedPage(req.hostname, path, schemaversion)
+      if (!page) throw new HttpError(404)
+      return await renderPage(req.headers, page, extension, false)
     })
   }
 

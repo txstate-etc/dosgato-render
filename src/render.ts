@@ -112,7 +112,7 @@ function hydratePage (pageData: PageRecord) {
 }
 
 function editModeIncludes () {
-  return '' // TODO: include script and css to support implementation of edit bars
+  return '<script src="/.editing/edit.js" async></script><link rel="stylesheet" href="/.editing/edit.css">'
 }
 
 /**
@@ -146,9 +146,21 @@ export async function renderPage (requestHeaders: IncomingHttpHeaders, page: Pag
   await executeSetContext(editMode)(pageComponent)
 
   // provide content for the <head> element and give it to the page component
+  const fontfiles = new Map<string, { href: string, format: string }>()
+  const cssBlockNames = Array.from(new Set(componentsIncludingPage.flatMap(r => r.cssBlocks())))
+  const cssBlocks = cssBlockNames.map(name => ({ name, block: templateRegistry.cssblocks.get(name) })).filter(({ block }) => block != null)
+  for (const { block } of cssBlocks) {
+    for (const fontfile of block!.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
+  }
   pageComponent.headContent = (editMode ? editModeIncludes() : '') + [
-    ...Array.from(new Set(componentsIncludingPage.flatMap(r => r.jsBlocks()))).map(name => `<script src="/.resources/${resourceversion}/${name}.js"></script>`),
-    ...Array.from(new Set(componentsIncludingPage.flatMap(r => r.cssBlocks()))).map(name => `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css">`)
+    ...cssBlocks.map(({ name, block }) =>
+      `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block!.async ? ' media="print" onload="this.media=all"' : ''}>`
+    ),
+    ...Array.from(fontfiles.values()).map(ff =>
+      `<link rel="preload" as="font" href="${ff.href}" type="${ff.format}" crossorigin="anonymous">`
+    ),
+    ...Array.from(new Set(componentsIncludingPage.flatMap(r => r.jsBlocks()))).map(name => ({ name, block: templateRegistry.jsblocks.get(name) })).filter(({ name, block }) => block != null).map(({ name, block }) =>
+      `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ' defer'}></script>`)
   ].join('\n')
 
   // execute the render phase

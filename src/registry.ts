@@ -1,4 +1,4 @@
-import { PageRecord, Page, Component, ResourceProvider, ComponentData } from '@dosgato/templating'
+import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock } from '@dosgato/templating'
 import { minify } from 'csso'
 import { readFileSync, statSync } from 'fs'
 import mime from 'mime-types'
@@ -22,8 +22,8 @@ function versionGreater (v2: string|undefined, v1: string|undefined) {
 export class TemplateRegistry {
   public pages: Map<string, new (page: PageRecord) => Page> = new Map()
   public components: Map<string, new (component: ComponentData, path: string, parent: Component) => Component> = new Map()
-  public cssblocks: Map<string, { css?: string, path?: string, version?: string, map?: string }> = new Map()
-  public jsblocks: Map<string, { js?: string, path?: string, version?: string, map?: string }> = new Map()
+  public cssblocks: Map<string, CSSBlock & { fontfiles?: { href: string, format: string }[], map?: string }> = new Map()
+  public jsblocks: Map<string, JSBlock & { map?: string }> = new Map()
   public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()
   public all = [] as (typeof Component)[]
 
@@ -35,6 +35,7 @@ export class TemplateRegistry {
   }
 
   addProvider<T extends typeof ResourceProvider> (template: T) {
+    console.info('initializing template or resource provider', template.name)
     for (const [key, block] of template.jsBlocks.entries()) {
       const existing = this.jsblocks.get(key)
       if (!existing || versionGreater(block.version, existing.version)) this.jsblocks.set(key, block)
@@ -58,6 +59,7 @@ export class TemplateRegistry {
     }
     for (const block of this.cssblocks.values()) {
       const css = block.css ?? readFileSync(block.path!, 'utf8')
+      block.fontfiles = this.findFontFiles(css)
       const minified = minify(css, { sourceMap: true })
       block.css = minified.css
       block.map = JSON.stringify(minified.map)
@@ -77,6 +79,15 @@ export class TemplateRegistry {
 
   getTemplate (templateKey: string) {
     return this.pages.get(templateKey) ?? this.components.get(templateKey)
+  }
+
+  protected findFontFiles (css: string) {
+    const ret = new Map<string, { href: string, format: string }>()
+    const matches = css.match(/url\((.*?)\)\s+format\(['"](.*?)['"]\);/i)
+    for (const match of matches ?? []) {
+      if (match[2] === 'woff2') ret.set(match[1], { href: match[1], format: 'font/woff2' })
+    }
+    return Array.from(ret.values())
   }
 }
 
