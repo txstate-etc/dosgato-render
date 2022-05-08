@@ -16,21 +16,17 @@
     "@fastify/cookie": "^6.0.0",
     "agentkeepalive": "^4.1.4",
     "axios": "^0.24.0",
-    "csso": "^4.2.0",
-    "fast-json-stable-stringify": "^2.1.0",
+    "esbuild": "^0.14.38",
     "fastify-txstate": "^2.3.3",
     "mime-types": "^2.1.34",
     "semver": "^7.3.5",
-    "terser": "^5.10.0",
     "txstate-utils": "^1.5.1"
   },
   "devDependencies": {
-    "@types/csso": "^4.2.0",
     "@types/mime-types": "^2.1.1",
     "@types/node": "^14.6.2",
     "@types/semver": "^7.3.9",
     "eslint-config-standard-with-typescript": "^21.0.1",
-    "ts-node": "^10.2.1",
     "typescript": "^4.4.2"
   },
   "repository": {

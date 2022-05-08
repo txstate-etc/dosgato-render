@@ -1,15 +1,26 @@
 import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock } from '@dosgato/templating'
-import { minify } from 'csso'
+import { transform } from 'esbuild'
 import { readFileSync, statSync } from 'fs'
 import mime from 'mime-types'
 import semver from 'semver'
-import { minify as jsminify } from 'terser'
 import { resourceversion } from './version'
 
 function versionGreater (v2: string|undefined, v1: string|undefined) {
   if (v2 == null) return false
   if (v1 == null) return true
   return semver.gt(v2, v1)
+}
+
+interface RegistryCSSBlock extends CSSBlock {
+  fontfiles?: {
+    href: string
+    format: string
+  }[]
+  map?: string
+}
+
+interface RegistryJSBlock extends JSBlock {
+  map?: string
 }
 
 /**
@@ -22,8 +33,8 @@ function versionGreater (v2: string|undefined, v1: string|undefined) {
 export class TemplateRegistry {
   public pages: Map<string, new (page: PageRecord) => Page> = new Map()
   public components: Map<string, new (component: ComponentData, path: string, parent: Component) => Component> = new Map()
-  public cssblocks: Map<string, CSSBlock & { fontfiles?: { href: string, format: string }[], map?: string }> = new Map()
-  public jsblocks: Map<string, JSBlock & { map?: string }> = new Map()
+  public cssblocks: Map<string, RegistryCSSBlock> = new Map()
+  public jsblocks: Map<string, RegistryJSBlock> = new Map()
   public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()
   public all = [] as (typeof Component)[]
 
@@ -36,13 +47,31 @@ export class TemplateRegistry {
 
   addProvider<T extends typeof ResourceProvider> (template: T) {
     console.info('initializing template or resource provider', template.name)
+    const promises: Promise<any>[] = []
     for (const [key, block] of template.jsBlocks.entries()) {
       const existing = this.jsblocks.get(key)
-      if (!existing || versionGreater(block.version, existing.version)) this.jsblocks.set(key, block)
+      if (!existing || versionGreater(block.version, existing.version)) {
+        this.jsblocks.set(key, block)
+        const finalBlock = block as RegistryJSBlock
+        const js = finalBlock.js ?? readFileSync(finalBlock.path!, 'utf8')
+        promises.push(transform(js, { minify: true, sourcemap: true, legalComments: 'none' }).then(minified => {
+          finalBlock.js = minified.code ?? ''
+          finalBlock.map = minified.map ?? ''
+        }))
+      }
     }
     for (const [key, block] of template.cssBlocks.entries()) {
       const existing = this.cssblocks.get(key)
-      if (!existing || versionGreater(block.version, existing.version)) this.cssblocks.set(key, block)
+      if (!existing || versionGreater(block.version, existing.version)) {
+        this.cssblocks.set(key, block)
+        const finalBlock = block as RegistryCSSBlock
+        const css = finalBlock.css ?? readFileSync(finalBlock.path!, 'utf8')
+        finalBlock.fontfiles = this.findFontFiles(css)
+        promises.push(transform(css, { loader: 'css', minify: true, sourcemap: true, legalComments: 'none' }).then(minified => {
+          finalBlock.css = minified.code
+          finalBlock.map = minified.map
+        }))
+      }
     }
     for (const [key, block] of template.files.entries()) {
       const existing = this.files.get(key)
@@ -57,24 +86,13 @@ export class TemplateRegistry {
         template.webpaths.set(key, webpath)
       }
     }
-    for (const block of this.cssblocks.values()) {
-      const css = block.css ?? readFileSync(block.path!, 'utf8')
-      block.fontfiles = this.findFontFiles(css)
-      const minified = minify(css, { sourceMap: true })
-      block.css = minified.css
-      block.map = JSON.stringify(minified.map)
-    }
-    for (const block of this.jsblocks.values()) {
-      const js = block.js ?? readFileSync(block.path!, 'utf8')
-      jsminify(js, { sourceMap: true }).then(minified => {
-        block.js = minified.code ?? ''
-        block.map = minified.map as string ?? ''
-      }).catch(e => console.error(e))
-    }
-    // now that we've registered and minified the JS and CSS, we can allow the original
-    // unminified code to get garbage collected
-    template.jsBlocks.clear()
-    template.cssBlocks.clear()
+    Promise.all(promises).then(() => {
+      // now that we've registered and minified the JS and CSS, we can allow the original
+      // unminified code to get garbage collected
+      template.jsBlocks.clear()
+      template.cssBlocks.clear()
+      console.info('finished template or resource provider', template.name)
+    }).catch(console.error)
   }
 
   getTemplate (templateKey: string) {
