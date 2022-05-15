@@ -2,8 +2,8 @@
 
 import { IncomingHttpHeaders } from 'http'
 import { Component, PageRecord, PageWithAncestors, ComponentData } from '@dosgato/templating'
-import { templateRegistry } from './registry'
-import { resourceversion } from './version'
+import { templateRegistry } from './registry.js'
+import { resourceversion } from './version.js'
 
 // of Component instances
 function collectComponents (component: Component) {
@@ -77,10 +77,10 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 
   // hydrate the page data into full objects
   const component = new ComponentType(componentData, path, parent)
-  for (const key of Object.keys(componentData.areas)) {
+  for (const key of Object.keys(componentData.areas ?? {})) {
     const areaComponents: Component[] = []
-    for (let i = 0; i < componentData.areas[key].length; i++) {
-      const child = hydrateComponent(componentData.areas[key][i], component, `${path}/${key}/${i}`)
+    for (let i = 0; i < componentData.areas![key].length; i++) {
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}/${key}/${i}`)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
@@ -100,10 +100,10 @@ function hydratePage (pageData: PageRecord) {
 
   // hydrate the page data into full objects
   const page = new PageType(pageData)
-  for (const key of Object.keys(pageData.data.areas)) {
+  for (const key of Object.keys(pageData.data.areas ?? {})) {
     const areaComponents: Component[] = []
-    for (let i = 0; i < pageData.data.areas[key].length; i++) {
-      const child = hydrateComponent(pageData.data.areas[key][i], page, `${key}/${i}`)
+    for (let i = 0; i < pageData.data.areas![key].length; i++) {
+      const child = hydrateComponent(pageData.data.areas![key][i], page, `${key}/${i}`)
       if (child) areaComponents.push(child)
     }
     page.areas.set(key, areaComponents)
@@ -162,7 +162,6 @@ export async function renderPage (requestHeaders: IncomingHttpHeaders, page: Pag
     ...Array.from(new Set(componentsIncludingPage.flatMap(r => r.jsBlocks()))).map(name => ({ name, block: templateRegistry.jsblocks.get(name) })).filter(({ name, block }) => block != null).map(({ name, block }) =>
       `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ' defer'}></script>`)
   ].join('\n')
-
   // execute the render phase
   return renderComponent(editMode)(pageComponent)
 }

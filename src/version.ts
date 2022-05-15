@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 
 /**
  * The rendering server needs to be locked at a particular schemaversion so that the rendering
@@ -9,7 +9,7 @@ import { readFileSync } from 'fs'
  * the current time in it. On startup we read that file and thus keep our expected schema
  * version until the next time the software is built (and then tested).
  */
-export const schemaversion = new Date(readFileSync('/.builddate', 'ascii').trim())
+export const schemaversion = existsSync('/.builddate') ? new Date(readFileSync('/.builddate', 'ascii').trim()) : new Date()
 
 /**
  * Static resources like js, css, and images will never change until the next Docker

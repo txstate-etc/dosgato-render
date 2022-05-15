@@ -32,7 +32,7 @@ getPreviewPage ($pagetreeId: ID!, $path: String!, $published: Boolean, $version:
 }
 `
 
-class Api {
+export class APIClient {
   client = axios.create({
     baseURL: process.env.DOSGATO_API_URL,
     httpAgent: new AgentKeepAlive(),
@@ -58,4 +58,4 @@ class Api {
   }
 }
 
-export const api = new Api()
+export const api = new APIClient()

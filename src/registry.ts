@@ -3,7 +3,7 @@ import { transform } from 'esbuild'
 import { readFileSync, statSync } from 'fs'
 import mime from 'mime-types'
 import semver from 'semver'
-import { resourceversion } from './version'
+import { resourceversion } from './version.js'
 
 function versionGreater (v2: string|undefined, v1: string|undefined) {
   if (v2 == null) return false
@@ -36,16 +36,17 @@ export class TemplateRegistry {
   public cssblocks: Map<string, RegistryCSSBlock> = new Map()
   public jsblocks: Map<string, RegistryJSBlock> = new Map()
   public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()
-  public all = [] as (typeof Component)[]
+  public all = [] as (typeof Component|typeof Page)[]
 
-  addTemplate<T extends typeof Component> (template: T) {
-    if (template instanceof Page && !this.pages.has(template.templateKey)) this.pages.set(template.templateKey, template as any)
+  async addTemplate (template: typeof Component | typeof Page) {
+    if (!template.templateKey) throw new Error(`template ${template.name} has undefined templateKey, that must be corrected`)
+    if (template.prototype instanceof Page && !this.pages.has(template.templateKey)) this.pages.set(template.templateKey, template as any)
     else if (!this.components.has(template.templateKey)) this.components.set(template.templateKey, template as any)
     this.all.push(template)
-    this.addProvider(template as any)
+    await this.addProvider(template as any)
   }
 
-  addProvider<T extends typeof ResourceProvider> (template: T) {
+  async addProvider<T extends typeof ResourceProvider> (template: T) {
     console.info('initializing template or resource provider', template.name)
     const promises: Promise<any>[] = []
     for (const [key, block] of template.jsBlocks.entries()) {
@@ -86,13 +87,13 @@ export class TemplateRegistry {
         template.webpaths.set(key, webpath)
       }
     }
-    Promise.all(promises).then(() => {
-      // now that we've registered and minified the JS and CSS, we can allow the original
-      // unminified code to get garbage collected
-      template.jsBlocks.clear()
-      template.cssBlocks.clear()
-      console.info('finished template or resource provider', template.name)
-    }).catch(console.error)
+    await Promise.all(promises)
+
+    // now that we've registered and minified the JS and CSS, we can allow the original
+    // unminified code to get garbage collected
+    for (const k of template.jsBlocks.keys()) template.jsBlocks.set(k, {})
+    for (const k of template.cssBlocks.keys()) template.cssBlocks.set(k, {})
+    console.info('finished template or resource provider', template.name)
   }
 
   getTemplate (templateKey: string) {
