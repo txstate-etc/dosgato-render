@@ -11,6 +11,6 @@ export class BlankTemplate extends Page {
   ])
 
   render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `<!DOCTYPE html><html><head>${this.headContent}<script>window.editMode = ${String(editMode)}</script></head><body><main>${renderedAreas.get('main')?.join('') ?? ''}</main></body></html>`
+    return `<!DOCTYPE html><html><head>${this.headContent}<script>window.editMode = ${String(editMode)}</script></head><body><main>${renderedAreas.get('main')?.join('') ?? ''}${this.newBar('main', { editMode })}</main></body></html>`
   }
 }

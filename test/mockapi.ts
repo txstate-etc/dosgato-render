@@ -32,7 +32,7 @@ class MockAPIClient extends APIClient {
   }
 
   async getPreviewPage (token: string, pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number): Promise<PageWithAncestors|undefined> {
-    return await this.getLaunchedPage(token, path, schemaversion)
+    return await this.getLaunchedPage('', path, schemaversion)
   }
 }
 

@@ -28,12 +28,13 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string, pagetreeId: string, version: string }, Querystring: { token?: string } }>(
       '/.preview/:pagetreeId/:version/*',
-      async req => {
+      async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
         const page = await this.api.getPreviewPage(getToken(req), req.params.pagetreeId, path, schemaversion, published, version)
         if (!page) throw new HttpError(404)
+        void res.header('Content-Type', 'text/html')
         return await renderPage(req.headers, page, extension, false)
       }
     )
@@ -43,11 +44,12 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string, pagetreeId: string, version: string }, Querystring: { token?: string } }>(
       '/.edit/:pagetreeId/*',
-      async req => {
+      async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
         const page = await this.api.getPreviewPage(getToken(req), req.params.pagetreeId, path, schemaversion)
         if (!page) throw new HttpError(404)
+        void res.header('Content-Type', 'text/html')
         return await renderPage(req.headers, page, extension, true)
       }
     )
@@ -96,7 +98,7 @@ export class RenderingServer extends Server {
       return `
         window.dgEditing = {
           send (action) {
-            const path = this.getAttribute('data-path')
+            const path = this.closest('[data-path]').getAttribute('data-path')
             window.postMessage({ action, path }, '*')
           },
           edit () {

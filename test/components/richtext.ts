@@ -17,6 +17,6 @@ export class RichTextTemplate extends Component<RichTextData> {
   ])
 
   render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-rich-text">${this.data.text}</div>`
+    return `${this.editBar({ editMode })}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-rich-text">${this.data.text}</div>`
   }
 }

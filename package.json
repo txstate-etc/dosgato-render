@@ -14,7 +14,7 @@
     "start": "node --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
-    "@dosgato/templating": "^0.0.14",
+    "@dosgato/templating": "^0.0.16",
     "@fastify/cookie": "^6.0.0",
     "agentkeepalive": "^4.1.4",
     "axios": "^0.27.2",
