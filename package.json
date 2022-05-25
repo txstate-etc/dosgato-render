@@ -1,6 +1,6 @@
 {
   "name": "@dosgato/render",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Library providing the rendering server for DosGato CMS.",
   "type": "module",
   "exports": {
@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/txstate-etc/dosgato-templating.git"
+    "url": "git+https://github.com/txstate-etc/dosgato-render.git"
   },
   "keywords": [
     "cms",
@@ -45,8 +45,8 @@
   "author": "Nick Wing",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/txstate-etc/dosgato-templating/issues"
+    "url": "https://github.com/txstate-etc/dosgato-render/issues"
   },
-  "homepage": "https://github.com/txstate-etc/dosgato-templating#readme",
+  "homepage": "https://github.com/txstate-etc/dosgato-render#readme",
   "files": ["dist", "dist-esm"]
 }
