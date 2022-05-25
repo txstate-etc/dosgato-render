@@ -1,4 +1,4 @@
-import { Component, ComponentData, JSBlock } from '@dosgato/templating'
+import { Component, ComponentData } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface RichTextData extends ComponentData {

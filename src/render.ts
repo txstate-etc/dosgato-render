@@ -1,10 +1,9 @@
-// recursive helper function to traverse a hydrated page and return a flat array
-
 import { IncomingHttpHeaders } from 'http'
 import { Component, PageRecord, PageWithAncestors, ComponentData } from '@dosgato/templating'
 import { templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 
+// recursive helper function to traverse a hydrated page and return a flat array
 // of Component instances
 function collectComponents (component: Component) {
   const ret = [component] as Component<ComponentData>[]
@@ -70,6 +69,8 @@ function renderVariation (extension: string) {
   return renderFn
 }
 
+// recursive helper function for transformation of plain-object componentData
+// into a hydrated instance of the Component class (or a descendent class like Page)
 function hydrateComponent (componentData: ComponentData, parent: Component, path: string) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
@@ -88,11 +89,11 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   return component
 }
 
-// helper function to convert a non-hydrated page into a hydrated page
-// in other words, the input to this function is a raw JSON object, as stored in the
-// database, and the output is a Page object, containing many Component objects, all
-// of which are ready with the properties and methods defined above to support the rendering
-// process
+// transform plain-object page data into a hydrated instance of the Page class
+// in other words, the input to this function is a raw JSON object, as received from the
+// API, and the output is a Page object, containing many Component objects, all
+// of which are ready with the properties and methods defined in the Component class,
+// that support the rendering process
 function hydratePage (pageData: PageRecord) {
   // find the page implementation in the registry
   const PageType = templateRegistry.pages.get(pageData.data.templateKey)

@@ -1,4 +1,4 @@
-import { Component, ComponentData, CSSBlock } from '@dosgato/templating'
+import { Component, ComponentData } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface TextImageData extends ComponentData {

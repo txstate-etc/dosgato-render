@@ -1,4 +1,4 @@
-import { CSSBlock, Page } from '@dosgato/templating'
+import { Page } from '@dosgato/templating'
 
 export class BlankTemplate extends Page {
   static templateKey = 'blank'
