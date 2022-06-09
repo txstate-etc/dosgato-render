@@ -3,7 +3,6 @@ import { APIClient } from '../src/api.js'
 
 class MockAPIClient extends APIClient {
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date): Promise<PageWithAncestors|undefined> {
-    if (path !== '/test') return undefined
     return {
       id: '1',
       linkId: 'abc',

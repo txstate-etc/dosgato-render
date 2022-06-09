@@ -10,7 +10,7 @@ import { parsePath } from './util.js'
 import { schemaversion } from './version.js'
 
 function getToken (req: FastifyRequest<{ Querystring: { token?: string }}>) {
-  const header = req.headers.authorization?.split(' ') ?? ['Bearer', '']
+  const header = req.headers.authorization?.split(' ') ?? []
   if (header[0] === 'Bearer') return header[1]
   return req.query?.token ?? req.cookies.token ?? ''
 }
