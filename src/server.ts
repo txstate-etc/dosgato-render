@@ -1,18 +1,41 @@
 import { ResourceProvider } from '@dosgato/templating'
 import { FastifyRequest } from 'fastify'
-import cookie from '@fastify/cookie'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { createReadStream } from 'fs'
+import { decodeJwt, jwtVerify, SignJWT } from 'jose'
+import { Cache } from 'txstate-utils'
 import { api, type APIClient } from './api.js'
 import { templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
-import { parsePath } from './util.js'
+import { jwtSignKey, parsePath } from './util.js'
 import { schemaversion } from './version.js'
 
-function getToken (req: FastifyRequest<{ Querystring: { token?: string }}>) {
+const tokenCache = new Cache(async (token: string, api: APIClient) => {
+  return await api.identifyToken(token)
+})
+
+const resignedCache = new Cache(async (sub: string) => {
+  return await new SignJWT({ sub })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer('dg-render')
+    .setExpirationTime('10 minute')
+    .sign(jwtSignKey)
+})
+
+function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
   if (header[0] === 'Bearer') return header[1]
-  return req.query?.token ?? req.cookies.token ?? ''
+  return req.query?.token ?? ''
+}
+
+async function resignToken (token: string, allowEmptyToken?: boolean) {
+  if (!token && !allowEmptyToken) throw new HttpError(401)
+  const payload = decodeJwt(token)
+  if (payload.iss === 'dg-render-temporary') {
+    if (!await jwtVerify(token, jwtSignKey)) throw new HttpError(401)
+    token = await resignedCache.get(payload.sub!)
+  }
+  return token
 }
 
 export class RenderingServer extends Server {
@@ -20,7 +43,6 @@ export class RenderingServer extends Server {
 
   constructor (config?: FastifyTxStateOptions) {
     super(config)
-    void this.app.register(cookie)
 
     /**
      * Route for preview renders - no edit bars, anonymous access only when
@@ -32,7 +54,8 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
-        const page = await this.api.getPreviewPage(getToken(req), req.params.pagetreeId, path, schemaversion, published, version)
+        const token = await resignToken(getToken(req), published)
+        const page = await this.api.getPreviewPage(token, req.params.pagetreeId, path, schemaversion, published, version)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
         return await renderPage(req.headers, page, extension, false)
@@ -47,12 +70,44 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
-        const page = await this.api.getPreviewPage(getToken(req), req.params.pagetreeId, path, schemaversion)
+        const token = await resignToken(getToken(req))
+        const page = await this.api.getPreviewPage(token, req.params.pagetreeId, path, schemaversion)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
         return await renderPage(req.headers, page, extension, true)
       }
     )
+
+    /**
+     * Acquire a token for use by the editing iframe in the admin UI
+     *
+     * When an editor is editing a page, they load an iframe pointing at the rendering service
+     * at /.edit/path, but their auth token in the admin UI is in session storage, not a cookie,
+     * so we need to send the token as a query parameter. However, if we simply send the editor's
+     * API token, other editors could write custom javascript to collect their API token just by
+     * opening the other editor's page.
+     *
+     * Additionally, we cannot set sandbox="allow-same-origin" on the iframe, or else custom
+     * javascript could read the token out of session storage. This means cookies will not work
+     * either, because without "allow-same-origin" the browser treats the iframe as cross domain
+     * in all respects, including cookies.
+     *
+     * To solve all these problems, we will make a request from the admin UI to this endpoint
+     * with the auth token as a Bearer token, prior to loading the iframe onto the page. This
+     * endpoint will return a temporary token issued by the rendering server, which can be sent
+     * to the /.edit/ endpoint as a query parameter. The temporary token will be short-lived,
+     * locked down to a single path, and only useful to view the latest version of the page. This
+     * vastly limits the damage if an editor writes custom js to collect it.
+     */
+    this.app.get<{ Params: { '*': string } }>('/token/*', async (req, res) => {
+      const token = getToken(req as any)
+      const sub = await tokenCache.get(token, this.api)
+      return await new SignJWT({ sub, path: req.params['*'] })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuer('dg-render-temporary')
+        .setExpirationTime('1 minute')
+        .sign(jwtSignKey)
+    })
 
     /**
      * Route for fetching CSS and JS from our registered templates, anonymous OK

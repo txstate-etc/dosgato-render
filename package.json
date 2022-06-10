@@ -14,12 +14,12 @@
     "start": "node --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
-    "@dosgato/templating": "^0.0.16",
-    "@fastify/cookie": "^6.0.0",
+    "@dosgato/templating": "^0.0.17",
     "agentkeepalive": "^4.1.4",
     "axios": "^0.27.2",
     "esbuild": "^0.14.38",
     "fastify-txstate": "^2.3.3",
+    "jose": "^4.8.1",
     "mime-types": "^2.1.34",
     "semver": "^7.3.5",
     "txstate-utils": "^1.7.1"

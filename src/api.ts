@@ -1,6 +1,8 @@
 import { PageWithAncestors } from '@dosgato/templating'
 import AgentKeepAlive from 'agentkeepalive'
 import axios from 'axios'
+import { SignJWT } from 'jose'
+import { jwtSignKey } from './util.js'
 
 const SINGLE_PAGE_INFO = `
 id
@@ -33,6 +35,7 @@ getPreviewPage ($pagetreeId: ID!, $path: String!, $published: Boolean, $version:
 `
 
 export class APIClient {
+  anonToken?: string
   client = axios.create({
     baseURL: process.env.DOSGATO_API_URL,
     httpAgent: new AgentKeepAlive(),
@@ -40,11 +43,19 @@ export class APIClient {
   })
 
   async query <T = any> (query: string, variables?: any, token?: string) {
-    const resp = (await this.client.post('/', { query, variables }, {
-      headers: { authorization: `Bearer ${token ?? process.env.DOS_GATO_ANON_TOKEN!}` }
-    })).data
-    if (resp.errors?.length) throw new Error(resp.errors[0].message)
-    return resp.data as T
+    this.anonToken ??= await new SignJWT({ sub: 'anonymous' })
+      .setIssuer('dg-render')
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(jwtSignKey)
+    try {
+      const resp = (await this.client.post('', { query, variables }, {
+        headers: { authorization: `Bearer ${token ?? this.anonToken}` }
+      })).data
+      if (resp.errors?.length) throw new Error(resp.errors[0].message)
+      return resp.data as T
+    } catch (e: any) {
+      throw new Error(e.message)
+    }
   }
 
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date): Promise<PageWithAncestors|undefined> {
@@ -55,6 +66,12 @@ export class APIClient {
   async getPreviewPage (token: string, pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number): Promise<PageWithAncestors|undefined> {
     const { pages } = await this.query<{ pages: PageWithAncestors[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version }, token)
     return pages[0]
+  }
+
+  async identifyToken (token: string) {
+    if (!token) return undefined
+    const { users } = await this.query<{ users: { id: string }[] }>('{ users (filter: { ids: ["self"] }) { id } }', {}, token)
+    return users[0]?.id
   }
 }
 
