@@ -11,6 +11,12 @@ function versionGreater (v2: string|undefined, v1: string|undefined) {
   return semver.gt(v2, v1)
 }
 
+function versionBreaking (v2: string|undefined, v1: string|undefined) {
+  if (v2 === v1) return false
+  if (v1 == null || v2 == null) return false
+  return semver.major(v1) !== semver.major(v2)
+}
+
 interface RegistryCSSBlock extends CSSBlock {
   fontfiles?: {
     href: string
@@ -21,6 +27,14 @@ interface RegistryCSSBlock extends CSSBlock {
 
 interface RegistryJSBlock extends JSBlock {
   map?: string
+}
+
+function versionWarning <T extends JSBlock|CSSBlock> (existing: T|undefined, block: T, type: string, key: string) {
+  if (existing && existing.version !== block.version) {
+    const breaking = versionBreaking(existing.version, block.version)
+    const log = breaking ? console.warn : console.info
+    log(type, `block${breaking ? ' BREAKING' : ''} version conflict detected for`, key, '-', existing.version, 'vs', block.version)
+  }
 }
 
 /**
@@ -51,6 +65,7 @@ export class TemplateRegistry {
     const promises: Promise<any>[] = []
     for (const [key, block] of template.jsBlocks.entries()) {
       const existing = this.jsblocks.get(key)
+      versionWarning(existing, block, 'Javascript', key)
       if (!existing || versionGreater(block.version, existing.version)) {
         this.jsblocks.set(key, block)
         const finalBlock = block as RegistryJSBlock
@@ -63,6 +78,7 @@ export class TemplateRegistry {
     }
     for (const [key, block] of template.cssBlocks.entries()) {
       const existing = this.cssblocks.get(key)
+      versionWarning(existing, block, 'CSS', key)
       if (!existing || versionGreater(block.version, existing.version)) {
         this.cssblocks.set(key, block)
         const finalBlock = block as RegistryCSSBlock
