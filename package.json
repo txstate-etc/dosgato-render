@@ -10,7 +10,7 @@
   "scripts": {
     "prepublishOnly": "npm run build",
     "build": "rm -rf dist && tsc",
-    "watch": "nodemon --exec 'npm start' --ext ts",
+    "watch": "nodemon --exec 'npm start' --ext ts,js,css",
     "start": "node --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {

@@ -1,0 +1,10 @@
+.dg-edit-bar {
+  background-color: rgba(235,232,232,0.59);
+  border: 2px solid #BC8CBF;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.dg-edit-bar.selected {
+  background-color: #BC8CBF;
+}

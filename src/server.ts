@@ -1,7 +1,7 @@
 import { ResourceProvider } from '@dosgato/templating'
 import { FastifyRequest } from 'fastify'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
-import { createReadStream } from 'fs'
+import { createReadStream, readFileSync } from 'fs'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import { Cache } from 'txstate-utils'
 import { api, type APIClient } from './api.js'
@@ -10,26 +10,34 @@ import { renderPage } from './render.js'
 import { jwtSignKey, parsePath } from './util.js'
 import { schemaversion } from './version.js'
 
-const tokenCache = new Cache(async (token: string, api: APIClient) => {
-  return await api.identifyToken(token)
+const resignedCache = new Cache(async ({ token, path }: { token: string, path?: string }) => {
+  try {
+    const payload = decodeJwt(token)
+    if (payload.iss === 'dg-render-temporary') {
+      if (!await jwtVerify(token, jwtSignKey)) throw new HttpError(401)
+      if (path !== payload.path) throw new HttpError(403)
+      token = await new SignJWT({ sub: payload.sub })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuer('dg-render')
+        .setExpirationTime('15 minute')
+        .sign(jwtSignKey)
+    }
+    return token
+  } catch (e: any) {
+    throw new HttpError(401)
+  }
 })
 
-const resignedCache = new Cache(async (sub: string) => {
-  return await new SignJWT({ sub })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuer('dg-render')
-    .setExpirationTime('10 minute')
-    .sign(jwtSignKey)
-})
-
-const tempTokenCache = new Cache(async ({ sub, path }: { sub: string, path: string }) => {
+const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: string }, api: APIClient) => {
+  const sub = await api.identifyToken(token)
+  if (!sub) throw new HttpError(401)
   return await new SignJWT({ sub, path })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('dg-render-temporary')
-    .setExpirationTime('4 hour')
+    .setExpirationTime('2 hour')
     .sign(jwtSignKey)
 }, {
-  freshseconds: 3600
+  freshseconds: 1800
 })
 
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
@@ -40,13 +48,7 @@ function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
 
 async function resignToken (token: string, allowEmptyToken?: boolean, path?: string) {
   if (!token && !allowEmptyToken) throw new HttpError(401)
-  const payload = decodeJwt(token)
-  if (payload.iss === 'dg-render-temporary') {
-    if (!await jwtVerify(token, jwtSignKey)) throw new HttpError(401)
-    if (path !== payload.path) throw new HttpError(403)
-    token = await resignedCache.get(payload.sub!)
-  }
-  return token
+  return await resignedCache.get({ token, path })
 }
 
 export class RenderingServer extends Server {
@@ -112,17 +114,15 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string } }>('/token/*', async (req, res) => {
       const token = getToken(req as any)
-      const sub = await tokenCache.get(token, this.api)
-      if (!sub) throw new HttpError(401)
-      const path = req.params['*'].trim().toLocaleLowerCase()
+      const { path } = parsePath(req.params['*'])
       if (!path) throw new HttpError(400, 'Must specify a path to get a temporary token.')
-      return await tempTokenCache.get({ sub, path })
+      return await tempTokenCache.get({ token, path }, this.api)
     })
 
     /**
      * Route for fetching CSS and JS from our registered templates, anonymous OK
      */
-    this.app.get<{ Params: { '*': string, version: string, file: string } }>('/.resources/:version/:file', async (req, res) => {
+    this.app.get<{ Params: { version: string, file: string } }>('/.resources/:version/:file', async (req, res) => {
       const [blockName, ...extensionParts] = req.params.file.split('.')
       const extension = extensionParts.join('.')
       const block = extension.includes('css')
@@ -158,73 +158,19 @@ export class RenderingServer extends Server {
     /**
      * Route for serving JS that supports the editing UI
      */
+    const editingJs = readFileSync('./editing.js')
     this.app.get('/.editing/edit.js', async (req, res) => {
       void res.header('Content-Type', 'application/javascript')
-      return `
-        window.dgEditing = {
-          path (el) {
-            return el.closest('[data-path]').getAttribute('data-path')
-          },
-          send (action, e) {
-            const path = this.path(e.target)
-            window.top.postMessage({ action, path }, '*')
-          },
-          edit (e) {
-            this.send('edit', e)
-          },
-          move (e) {
-            this.send('move', e)
-          },
-          del (e) {
-            this.send('del', e)
-          },
-          barPath (bar) {
-            return bar.getAttribute('data-path')
-          },
-          drag (e) {
-            this.validdrops = new Set()
-            const path = this.path(e.target)
-            this.dragging = path
-            const editbars = Array.from(document.querySelectorAll('.dg-edit-bar'))
-            const allpaths = editbars.map(this.barPath)
-            window.top.postMessage({ action: 'drag', path, allpaths }, '*')
-          },
-          drop (e) {
-            this.send('drop', e)
-            const path = this.path(e.target)
-            if (this.validdrops.has(path)) e.preventDefault()
-          },
-          over (e) {
-            const path = this.path(e.target)
-            if (this.validdrops.has(path)) e.preventDefault()
-          },
-          message (e) {
-            if (e.data.action === 'drag') {
-              this.validdrops = e.data.validdrops
-            }
-          }
-        }
-        window.addEventListener('message', window.dgEditing.message)
-      `
+      return editingJs
     })
 
     /**
      * Route for serving CSS that supports the editing UI
      */
+    const editingCss = readFileSync('./editing.css')
     this.app.get('/.editing/edit.css', async (req, res) => {
       void res.header('Content-Type', 'text/css')
-      return `
-        .dg-edit-bar {
-          background-color: rgba(235,232,232,0.59);
-          border: 2px solid #BC8CBF;
-          display: flex;
-          justify-content: flex-end;
-          align-items: center;
-        }
-        .dg-edit-bar.selected {
-          background-color: #BC8CBF;
-        }
-      `
+      return editingCss
     })
 
     this.app.get('/favicon.ico', async () => {
