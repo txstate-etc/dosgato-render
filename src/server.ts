@@ -22,17 +22,28 @@ const resignedCache = new Cache(async (sub: string) => {
     .sign(jwtSignKey)
 })
 
+const tempTokenCache = new Cache(async ({ sub, path }: { sub: string, path: string }) => {
+  return await new SignJWT({ sub, path })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer('dg-render-temporary')
+    .setExpirationTime('4 hour')
+    .sign(jwtSignKey)
+}, {
+  freshseconds: 3600
+})
+
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
   if (header[0] === 'Bearer') return header[1]
   return req.query?.token ?? ''
 }
 
-async function resignToken (token: string, allowEmptyToken?: boolean) {
+async function resignToken (token: string, allowEmptyToken?: boolean, path?: string) {
   if (!token && !allowEmptyToken) throw new HttpError(401)
   const payload = decodeJwt(token)
   if (payload.iss === 'dg-render-temporary') {
     if (!await jwtVerify(token, jwtSignKey)) throw new HttpError(401)
+    if (path !== payload.path) throw new HttpError(403)
     token = await resignedCache.get(payload.sub!)
   }
   return token
@@ -54,7 +65,7 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
-        const token = await resignToken(getToken(req), published)
+        const token = await resignToken(getToken(req), published, path)
         const page = await this.api.getPreviewPage(token, req.params.pagetreeId, path, schemaversion, published, version)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
@@ -70,7 +81,7 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
-        const token = await resignToken(getToken(req))
+        const token = await resignToken(getToken(req), undefined, path)
         const page = await this.api.getPreviewPage(token, req.params.pagetreeId, path, schemaversion)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
@@ -102,11 +113,10 @@ export class RenderingServer extends Server {
     this.app.get<{ Params: { '*': string } }>('/token/*', async (req, res) => {
       const token = getToken(req as any)
       const sub = await tokenCache.get(token, this.api)
-      return await new SignJWT({ sub, path: req.params['*'] })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuer('dg-render-temporary')
-        .setExpirationTime('1 minute')
-        .sign(jwtSignKey)
+      if (!sub) throw new HttpError(401)
+      const path = req.params['*'].trim().toLocaleLowerCase()
+      if (!path) throw new HttpError(400, 'Must specify a path to get a temporary token.')
+      return await tempTokenCache.get({ sub, path })
     })
 
     /**
