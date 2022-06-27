@@ -1,4 +1,4 @@
-import { Component, ComponentData } from '@dosgato/templating'
+import { advanceHeader, Component, ComponentData, ContextBase, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface RichTextData extends ComponentData {
@@ -16,7 +16,11 @@ export class RichTextTemplate extends Component<RichTextData> {
     }]
   ])
 
+  setContext <T extends ContextBase> (renderCtxFromParent: T, editMode: boolean) {
+    return advanceHeader(renderCtxFromParent, this.data.title)
+  }
+
   render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.editBar({ editMode })}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-rich-text">${this.data.text}</div>`
+    return `${this.editBar({ editMode })}${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-rich-text">${this.data.text}</div>`
   }
 }

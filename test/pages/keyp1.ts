@@ -1,14 +1,12 @@
 import { Page } from '@dosgato/templating'
 
-export class BlankTemplate extends Page {
-  static templateKey = 'blank'
+export class PageTemplate1 extends Page {
+  static templateKey = 'keyp1'
   static cssBlocks = new Map([
     ['blanktemplate', { css: 'main { padding: 1em; }' }]
   ])
 
-  static jsBlocks = new Map([
-    ['blanktemplate', { js: 'if (window.editMode) alert("This is edit mode!")' }]
-  ])
+  static jsBlocks = new Map()
 
   render (renderedAreas: Map<string, string[]>, editMode: boolean) {
     return `<!DOCTYPE html><html><head>${this.headContent}<script>window.editMode = ${String(editMode)}</script></head><body><main>${renderedAreas.get('main')?.join('') ?? ''}${this.newBar('main', { editMode })}</main></body></html>`

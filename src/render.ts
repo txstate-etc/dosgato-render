@@ -1,7 +1,8 @@
 import { IncomingHttpHeaders } from 'http'
-import { Component, PageRecord, PageWithAncestors, ComponentData } from '@dosgato/templating'
+import { Component, PageRecord, ComponentData, LinkDefinition } from '@dosgato/templating'
 import { templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
+import { RenderingAPIClient } from './api.js'
 
 // recursive helper function to traverse a hydrated page and return a flat array
 // of Component instances
@@ -116,6 +117,17 @@ function editModeIncludes () {
   return '<script src="/.editing/edit.js" async></script><link rel="stylesheet" href="/.editing/edit.css">'
 }
 
+function forgivingJsonParse <T extends object> (str: T): T
+function forgivingJsonParse <T extends object> (str: string|T): string|T
+function forgivingJsonParse <T> (str: string|T) {
+  if (typeof str !== 'string') return str
+  try {
+    return JSON.parse(str) as T
+  } catch (e: any) {
+    return str
+  }
+}
+
 /**
  * This function represents the entire rendering process. It takes a non-hydrated page (plus
  * the non-hydrated data for its ancestors, to support inheritance) and returns an HTML
@@ -124,7 +136,7 @@ function editModeIncludes () {
  * Any migrations should be completed before rendering a page. They probably already happened
  * in the API Server.
  */
-export async function renderPage (requestHeaders: IncomingHttpHeaders, page: PageWithAncestors, extension = 'html', editMode = false) {
+export async function renderPage (api: RenderingAPIClient, requestHeaders: IncomingHttpHeaders, page: PageRecord, extension = 'html', editMode = false) {
   const pageComponent = hydratePage(page)
   const componentsIncludingPage = collectComponents(pageComponent)
 

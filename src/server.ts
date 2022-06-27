@@ -1,10 +1,10 @@
-import { ResourceProvider } from '@dosgato/templating'
+import { type APIClient, ResourceProvider } from '@dosgato/templating'
 import { FastifyRequest } from 'fastify'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { createReadStream, readFileSync } from 'fs'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import { Cache } from 'txstate-utils'
-import { api, type APIClient } from './api.js'
+import { RenderingAPIClient } from './api.js'
 import { templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
 import { jwtSignKey, parsePath } from './util.js'
@@ -28,8 +28,9 @@ const resignedCache = new Cache(async ({ token, path }: { token: string, path?: 
   }
 })
 
-const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: string }, api: APIClient) => {
-  const sub = await api.identifyToken(token)
+const anonAPIClient = new RenderingAPIClient()
+const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: string }) => {
+  const sub = await anonAPIClient.identifyToken(token)
   if (!sub) throw new HttpError(401)
   return await new SignJWT({ sub, path })
     .setProtectedHeader({ alg: 'HS256' })
@@ -51,8 +52,10 @@ async function resignToken (token: string, allowEmptyToken?: boolean, path?: str
   return await resignedCache.get({ token, path })
 }
 
+type APIClientClass = new <T extends APIClient> (token?: string) => T
+
 export class RenderingServer extends Server {
-  private api: APIClient = api
+  private APIClient!: APIClientClass
 
   constructor (config?: FastifyTxStateOptions) {
     super(config)
@@ -68,10 +71,11 @@ export class RenderingServer extends Server {
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
         const token = await resignToken(getToken(req), published, path)
-        const page = await this.api.getPreviewPage(token, req.params.pagetreeId, path, schemaversion, published, version)
+        const api = new this.APIClient<RenderingAPIClient>(token)
+        const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion, published, version)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
-        return await renderPage(req.headers, page, extension, false)
+        return await renderPage(api, req.headers, page, extension, false)
       }
     )
 
@@ -84,10 +88,12 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
         const token = await resignToken(getToken(req), undefined, path)
-        const page = await this.api.getPreviewPage(token, req.params.pagetreeId, path, schemaversion)
+        console.log(token)
+        const api = new this.APIClient<RenderingAPIClient>(token)
+        const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
-        return await renderPage(req.headers, page, extension, true)
+        return await renderPage(api, req.headers, page, extension, true)
       }
     )
 
@@ -116,7 +122,7 @@ export class RenderingServer extends Server {
       const token = getToken(req as any)
       const { path } = parsePath(req.params['*'])
       if (!path) throw new HttpError(400, 'Must specify a path to get a temporary token.')
-      return await tempTokenCache.get({ token, path }, this.api)
+      return await tempTokenCache.get({ token, path })
     })
 
     /**
@@ -158,7 +164,7 @@ export class RenderingServer extends Server {
     /**
      * Route for serving JS that supports the editing UI
      */
-    const editingJs = readFileSync('./editing.js')
+    const editingJs = readFileSync(new URL('./editing.js', import.meta.url))
     this.app.get('/.editing/edit.js', async (req, res) => {
       void res.header('Content-Type', 'application/javascript')
       return editingJs
@@ -167,7 +173,7 @@ export class RenderingServer extends Server {
     /**
      * Route for serving CSS that supports the editing UI
      */
-    const editingCss = readFileSync('./editing.css')
+    const editingCss = readFileSync(new URL('./editing.css', import.meta.url))
     this.app.get('/.editing/edit.css', async (req, res) => {
       void res.header('Content-Type', 'text/css')
       return editingCss
@@ -184,16 +190,16 @@ export class RenderingServer extends Server {
       const { path, extension } = parsePath(req.params['*'])
       if (!path || path === '/') throw new HttpError(404)
       if (!extension) return await res.redirect(301, `${path}.html`)
-      const page = await this.api.getLaunchedPage(req.hostname, path, schemaversion)
+      const page = await anonAPIClient.getLaunchedPage(req.hostname, path, schemaversion)
       if (!page) throw new HttpError(404)
       void res.type('text/html')
-      return await renderPage(req.headers, page, extension, false)
+      return await renderPage(anonAPIClient, req.headers, page, extension, false)
     })
   }
 
-  async start (options?: number|{ port?: number, templates?: any[], providers?: (typeof ResourceProvider)[], api?: APIClient }) {
+  async start (options?: number|{ port?: number, templates?: any[], providers?: (typeof ResourceProvider)[], CustomAPIClient?: APIClientClass }) {
     const opts = typeof options === 'number' ? { port: options } : options
-    if (opts?.api) this.api = opts?.api
+    this.APIClient = opts?.CustomAPIClient ?? RenderingAPIClient as APIClientClass
     await Promise.all([
       ...(opts?.templates ?? []).map(async t => await this.addTemplate(t)),
       ...(opts?.providers ?? []).map(async p => await this.addProvider(p))

@@ -9,6 +9,9 @@ window.dgEditing = {
   edit (e) {
     this.send('edit', e)
   },
+  create (e) {
+    this.send('create', e)
+  },
   move (e) {
     this.send('move', e)
   },
