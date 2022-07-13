@@ -1,9 +1,7 @@
 import { APIClient, AssetLink, DataFolderLink, DataLink, LinkDefinition, PageRecord } from '@dosgato/templating'
-import AgentKeepAlive from 'agentkeepalive'
-import axios from 'axios'
 import { BestMatchLoader, DataLoaderFactory } from 'dataloader-factory'
 import { SignJWT } from 'jose'
-import { isBlank, pick } from 'txstate-utils'
+import { isBlank, pick, stringify } from 'txstate-utils'
 import { jwtSignKey } from './util.js'
 
 const PAGE_INFO = `
@@ -28,11 +26,6 @@ query getPreviewPage ($pagetreeId: ID!, $schemaversion: DateTime!, $path: String
   }
 }
 `
-const client = axios.create({
-  baseURL: process.env.DOSGATO_API_URL,
-  httpAgent: new AgentKeepAlive(),
-  httpsAgent: new AgentKeepAlive.HttpsAgent()
-})
 
 const anonToken = await new SignJWT({ sub: 'anonymous' })
   .setIssuer('dg-render')
@@ -73,11 +66,20 @@ export class RenderingAPIClient implements APIClient {
 
   async #query <T = any> (token: string, query: string, variables?: any) {
     try {
-      const resp = (await client.post('', { query, variables }, {
-        headers: { authorization: `Bearer ${token}` }
-      })).data
-      if (resp.errors?.length) throw new Error(resp.errors[0].message)
-      return resp.data as T
+      const resp = await fetch(process.env.DOSGATO_API_URL!, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        referrerPolicy: 'no-referrer',
+        body: stringify({ query, variables }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      const body = await resp.json()
+      if (body.errors?.length) throw new Error(body.errors[0].message)
+      return body.data as T
     } catch (e: any) {
       throw new Error(e.message)
     }

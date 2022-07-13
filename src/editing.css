@@ -1,5 +1,4 @@
 .dg-edit-bar {
-  background-color: rgba(235,232,232,0.59);
   border: 2px solid #BC8CBF;
   display: flex;
   justify-content: flex-end;
@@ -7,4 +6,17 @@
 }
 .dg-edit-bar.selected {
   background-color: #BC8CBF;
+}
+
+.dg-new-bar {
+  cursor: pointer;
+  border: 2px dashed #bc8cbf;
+}
+
+.dg-edit-bar, .dg-new-bar {
+  font-size: 12px;
+  text-transform: uppercase;
+  font-family: sans-serif;
+  background-color: rgba(235,232,232,0.59);
+  padding: 0.6rem 1rem;
 }

@@ -88,7 +88,6 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
         const token = await resignToken(getToken(req), undefined, path)
-        console.log(token)
         const api = new this.APIClient<RenderingAPIClient>(token)
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion)
         if (!page) throw new HttpError(404)

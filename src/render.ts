@@ -35,7 +35,7 @@ function executeSetContext (editMode: boolean) {
 // recursive helper function for the final render phase of rendering (phase 3)
 function renderComponent (editMode: boolean) {
   const renderFn = (component: Component) => {
-    if (component.hadError) return ''
+    if (component.hadError) return editMode ? 'There was an error rendering a component here.' : ''
     const renderedAreas = new Map<string, string[]>()
     for (const [key, list] of component.areas) {
       const areaList = list.map(renderFn)
@@ -45,7 +45,7 @@ function renderComponent (editMode: boolean) {
       return component.render(renderedAreas, editMode)
     } catch (e: any) {
       component.logError(e)
-      return ''
+      return editMode ? 'There was an error rendering a component here.' : ''
     }
   }
   return renderFn
@@ -75,14 +75,17 @@ function renderVariation (extension: string) {
 function hydrateComponent (componentData: ComponentData, parent: Component, path: string) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
-  if (!ComponentType) return parent.logError(new Error(`Template ${componentData.templateKey} is in the page data but no template code has been registered for it.`))
+  if (!ComponentType) {
+    console.warn(`Template ${componentData.templateKey} is in the page data at ${path} but no template code has been registered for it.`)
+    return undefined
+  }
 
   // hydrate the page data into full objects
   const component = new ComponentType(componentData, path, parent)
   for (const key of Object.keys(componentData.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < componentData.areas![key].length; i++) {
-      const child = hydrateComponent(componentData.areas![key][i], component, `${path}/${key}/${i}`)
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
@@ -105,7 +108,7 @@ function hydratePage (pageData: PageRecord) {
   for (const key of Object.keys(pageData.data.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < pageData.data.areas![key].length; i++) {
-      const child = hydrateComponent(pageData.data.areas![key][i], page, `${key}/${i}`)
+      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`)
       if (child) areaComponents.push(child)
     }
     page.areas.set(key, areaComponents)
@@ -115,17 +118,6 @@ function hydratePage (pageData: PageRecord) {
 
 function editModeIncludes () {
   return '<script src="/.editing/edit.js" async></script><link rel="stylesheet" href="/.editing/edit.css">'
-}
-
-function forgivingJsonParse <T extends object> (str: T): T
-function forgivingJsonParse <T extends object> (str: string|T): string|T
-function forgivingJsonParse <T> (str: string|T) {
-  if (typeof str !== 'string') return str
-  try {
-    return JSON.parse(str) as T
-  } catch (e: any) {
-    return str
-  }
 }
 
 /**

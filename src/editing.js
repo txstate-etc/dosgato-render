@@ -44,4 +44,21 @@ window.dgEditing = {
     }
   }
 }
-window.addEventListener('message', window.dgEditing.message)
+
+// prevent the user from navigating away from the page being edited
+window.addEventListener('message', window.dgEditing.message);
+(function () {
+  const location = window.document.location
+
+  const preventNavigation = function () {
+    const originalHashValue = location.hash
+
+    window.setTimeout(function () {
+      location.hash = 'preventNavigation' + ~~(9999 * Math.random())
+      location.hash = originalHashValue
+    }, 0)
+  }
+
+  window.addEventListener('beforeunload', preventNavigation, false)
+  window.addEventListener('unload', preventNavigation, false)
+})()

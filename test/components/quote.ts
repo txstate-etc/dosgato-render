@@ -7,9 +7,9 @@ export interface RichTextData extends ComponentData {
 }
 
 export class QuoteTemplate extends Component<RichTextData> {
-  static templateKey = 'richtext'
+  static templateKey = 'keyc3'
   static cssBlocks = new Map([
-    ['richtext', {
+    ['quote', {
       css: `
         .dg-rich-text img { max-width: 100%; }
       `
