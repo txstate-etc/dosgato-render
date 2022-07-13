@@ -17,7 +17,7 @@ export class LinkTemplate extends Component<LinkData> {
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.editBar({ editMode })}<a href="${htmlEncode(this.data.link)}" class="dg-link">${isBlank(this.data.text) ? htmlEncode(this.data.link) : htmlEncode(this.data.text)}</a>`
+  render (renderedAreas: Map<string, string[]>) {
+    return `${this.editBar()}<a href="${htmlEncode(this.data.link)}" class="dg-link">${isBlank(this.data.text) ? htmlEncode(this.data.link) : htmlEncode(this.data.text)}</a>`
   }
 }

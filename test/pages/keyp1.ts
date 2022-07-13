@@ -8,7 +8,7 @@ export class PageTemplate1 extends Page {
 
   static jsBlocks = new Map()
 
-  render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `<!DOCTYPE html><html><head>${this.headContent}<script>window.editMode = ${String(editMode)}</script></head><body><main>${renderedAreas.get('main')?.join('') ?? ''}${this.newBar('main', { editMode })}</main></body></html>`
+  render (renderedAreas: Map<string, string[]>) {
+    return `<!DOCTYPE html><html><head>${this.headContent}<script>window.editMode = ${String(this.editMode)}</script></head><body><main>${renderedAreas.get('main')?.join('') ?? ''}${this.newBar('main')}</main></body></html>`
   }
 }

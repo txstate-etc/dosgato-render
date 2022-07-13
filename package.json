@@ -14,7 +14,7 @@
     "start": "node --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
-    "@dosgato/templating": "^0.0.38",
+    "@dosgato/templating": "^0.0.39",
     "dataloader-factory": "^4.4.0",
     "esbuild": "^0.14.38",
     "fastify-txstate": "^2.3.3",

@@ -45,8 +45,8 @@ function versionWarning <T extends JSBlock|CSSBlock> (existing: T|undefined, blo
  * over their installations and opt-in to whatever templates they want to have/support.
  */
 export class TemplateRegistry {
-  public pages: Map<string, new (page: PageRecord) => Page> = new Map()
-  public components: Map<string, new (component: ComponentData, path: string, parent: Component) => Component> = new Map()
+  public pages: Map<string, new (page: PageRecord, editMode: boolean) => Page> = new Map()
+  public components: Map<string, new (component: ComponentData, path: string, parent: Component, editMode: boolean) => Component> = new Map()
   public cssblocks: Map<string, RegistryCSSBlock> = new Map()
   public jsblocks: Map<string, RegistryJSBlock> = new Map()
   public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()

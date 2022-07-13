@@ -22,7 +22,7 @@ function executeSetContext (editMode: boolean) {
     const components = Array.from(component.areas.values()).flat()
     await Promise.all(components.map(async c => {
       try {
-        if (!c.hadError) c.renderCtx = await c.setContext(component.renderCtx, editMode)
+        if (!c.hadError) c.renderCtx = await c.setContext(component.renderCtx)
       } catch (e: any) {
         c.logError(e)
       }
@@ -42,7 +42,7 @@ function renderComponent (editMode: boolean) {
       renderedAreas.set(key, areaList)
     }
     try {
-      return component.render(renderedAreas, editMode)
+      return component.render(renderedAreas)
     } catch (e: any) {
       component.logError(e)
       return editMode ? 'There was an error rendering a component here.' : ''
@@ -72,7 +72,7 @@ function renderVariation (extension: string) {
 
 // recursive helper function for transformation of plain-object componentData
 // into a hydrated instance of the Component class (or a descendent class like Page)
-function hydrateComponent (componentData: ComponentData, parent: Component, path: string) {
+function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
   if (!ComponentType) {
@@ -81,11 +81,11 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   }
 
   // hydrate the page data into full objects
-  const component = new ComponentType(componentData, path, parent)
+  const component = new ComponentType(componentData, path, parent, editMode)
   for (const key of Object.keys(componentData.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < componentData.areas![key].length; i++) {
-      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`)
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
@@ -98,17 +98,17 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 // API, and the output is a Page object, containing many Component objects, all
 // of which are ready with the properties and methods defined in the Component class,
 // that support the rendering process
-function hydratePage (pageData: PageRecord) {
+function hydratePage (pageData: PageRecord, editMode: boolean) {
   // find the page implementation in the registry
   const PageType = templateRegistry.pages.get(pageData.data.templateKey)
   if (!PageType) throw new Error('Unable to render page. Missing template implementation.')
 
   // hydrate the page data into full objects
-  const page = new PageType(pageData)
+  const page = new PageType(pageData, editMode)
   for (const key of Object.keys(pageData.data.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < pageData.data.areas![key].length; i++) {
-      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`)
+      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode)
       if (child) areaComponents.push(child)
     }
     page.areas.set(key, areaComponents)
@@ -129,13 +129,13 @@ function editModeIncludes () {
  * in the API Server.
  */
 export async function renderPage (api: RenderingAPIClient, requestHeaders: IncomingHttpHeaders, page: PageRecord, extension = 'html', editMode = false) {
-  const pageComponent = hydratePage(page)
+  const pageComponent = hydratePage(page, editMode)
   const componentsIncludingPage = collectComponents(pageComponent)
 
   // execute the fetch phase
   await Promise.all(componentsIncludingPage.map(async c => {
     try {
-      c.fetched = await c.fetch(editMode)
+      c.fetched = await c.fetch()
     } catch (e: any) {
       c.logError(e)
     }
@@ -147,7 +147,7 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
   }
 
   // execute the context phase
-  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 1, requestHeaders }, editMode)
+  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 1, requestHeaders })
   await executeSetContext(editMode)(pageComponent)
 
   // provide content for the <head> element and give it to the page component

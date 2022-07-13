@@ -16,7 +16,7 @@ export class QuoteTemplate extends Component<RichTextData> {
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.editBar({ editMode })}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-rich-text">${this.data.text}</div>`
+  render (renderedAreas: Map<string, string[]>) {
+    return `${this.editBar()}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-rich-text">${this.data.text}</div>`
   }
 }

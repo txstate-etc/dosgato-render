@@ -16,11 +16,11 @@ export class RichTextTemplate extends Component<RichTextData> {
     }]
   ])
 
-  setContext <T extends ContextBase> (renderCtxFromParent: T, editMode: boolean) {
+  setContext <T extends ContextBase> (renderCtxFromParent: T) {
     return advanceHeader(renderCtxFromParent, this.data.title)
   }
 
-  render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.editBar({ editMode })}${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-rich-text">${this.data.text}</div>`
+  render (renderedAreas: Map<string, string[]>) {
+    return `${this.editBar()}${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-rich-text">${this.data.text}</div>`
   }
 }

@@ -17,7 +17,7 @@ export class TextImageTemplate extends Component<TextImageData> {
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.editBar({ editMode })}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-text-image">${this.data.text}</div><img src="${htmlEncode(this.data.image)}">`
+  render (renderedAreas: Map<string, string[]>) {
+    return `${this.editBar()}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-text-image">${this.data.text}</div><img src="${htmlEncode(this.data.image)}">`
   }
 }

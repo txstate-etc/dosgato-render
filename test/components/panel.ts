@@ -15,7 +15,7 @@ export class PanelTemplate extends Component<PanelData> {
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>, editMode: boolean) {
-    return `${this.editBar({ editMode })}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-panel-body">${renderedAreas.get('content')?.join('') ?? ''}${this.newBar('content')}</div>`
+  render (renderedAreas: Map<string, string[]>) {
+    return `${this.editBar()}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-panel-body">${renderedAreas.get('content')?.join('') ?? ''}${this.newBar('content')}</div>`
   }
 }
