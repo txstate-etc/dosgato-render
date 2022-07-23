@@ -1,4 +1,4 @@
-import { Component, ComponentData } from '@dosgato/templating'
+import { Component, ComponentData, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface PanelData extends ComponentData {
@@ -10,12 +10,24 @@ export class PanelTemplate extends Component<PanelData> {
   static cssBlocks = new Map([
     ['panel', {
       css: `
-        .dg-panel { border: 1px solid black; }
+        .dg-panel {
+          width: 80%;
+          margin: auto;
+          padding: 1em;
+          border: 1px solid #CCCCCC;
+        }
+        .dg-panel h2, .dg-panel h3, .dg-panel h4, .dg-panel h5, .dg-panel h6 {
+          margin-top: 0;
+        }
       `
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>) {
-    return `${this.editBar()}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-panel-body">${renderedAreas.get('content')?.join('') ?? ''}${this.newBar('content')}</div>`
+  newLabel () {
+    return 'Add Panel Content'
+  }
+
+  render () {
+    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderComponents('content')}${this.newBar('content')}</div></div>`
   }
 }

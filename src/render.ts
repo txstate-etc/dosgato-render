@@ -1,8 +1,9 @@
 import { IncomingHttpHeaders } from 'http'
-import { Component, PageRecord, ComponentData, LinkDefinition } from '@dosgato/templating'
+import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent } from '@dosgato/templating'
 import { templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 import { RenderingAPIClient } from './api.js'
+import { randomid, htmlEncode } from 'txstate-utils'
 
 // recursive helper function to traverse a hydrated page and return a flat array
 // of Component instances
@@ -33,41 +34,35 @@ function executeSetContext (editMode: boolean) {
 }
 
 // recursive helper function for the final render phase of rendering (phase 3)
-function renderComponent (editMode: boolean) {
-  const renderFn = (component: Component) => {
-    if (component.hadError) return editMode ? 'There was an error rendering a component here.' : ''
-    const renderedAreas = new Map<string, string[]>()
-    for (const [key, list] of component.areas) {
-      const areaList = list.map(renderFn)
-      renderedAreas.set(key, areaList)
-    }
-    try {
-      return component.render(renderedAreas)
-    } catch (e: any) {
-      component.logError(e)
-      return editMode ? 'There was an error rendering a component here.' : ''
-    }
+function renderComponent (component: Component) {
+  if (component.hadError) return component.editMode ? 'There was an error rendering a component here.' : ''
+  component.renderedAreas = new Map<string, RenderedComponent[]>()
+  for (const [key, list] of component.areas) {
+    const areaList = list.map(c => ({ output: renderComponent(c), component: c }))
+    component.renderedAreas.set(key, areaList)
   }
-  return renderFn
+  try {
+    return component.render()
+  } catch (e: any) {
+    component.logError(e)
+    return component.editMode ? 'There was an error rendering a component here.' : ''
+  }
 }
 
 // recursive helper function for rendering a variation of a page
-function renderVariation (extension: string) {
-  const renderFn = (component: Component) => {
-    if (component.hadError) return ''
-    const renderedAreas = new Map<string, string>()
-    for (const [key, list] of component.areas) {
-      const areaList = list.map(renderFn)
-      renderedAreas.set(key, areaList.join(''))
-    }
-    try {
-      return component.renderVariation(extension, renderedAreas)
-    } catch (e: any) {
-      component.logError(e)
-      return ''
-    }
+function renderVariation (extension: string, component: Component) {
+  if (component.hadError) return ''
+  component.renderedAreas = new Map<string, RenderedComponent[]>()
+  for (const [key, list] of component.areas) {
+    const areaList = list.map(c => ({ output: renderVariation(extension, c), component: c }))
+    component.renderedAreas.set(key, areaList)
   }
-  return renderFn
+  try {
+    return component.renderVariation(extension)
+  } catch (e: any) {
+    component.logError(e)
+    return ''
+  }
 }
 
 // recursive helper function for transformation of plain-object componentData
@@ -132,10 +127,34 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
   const pageComponent = hydratePage(page, editMode)
   const componentsIncludingPage = collectComponents(pageComponent)
 
+  const templateByKey = await api.getTemplates()
+  pageComponent.templateProperties = templateByKey[pageComponent.data.templateKey]?.templateProperties
+
   // execute the fetch phase
+  const componentsIncludingInherited = [...componentsIncludingPage]
   await Promise.all(componentsIncludingPage.map(async c => {
     try {
+      c.autoLabel = templateByKey[c.data.templateKey]?.name
+      const registered: { area: string, components: ComponentData[], top: boolean, fromPageId: string }[] = []
+      c.registerInherited = (area, components, fromPageId, top) => {
+        registered.push({ area, components, top: !!top, fromPageId })
+      }
       c.fetched = await c.fetch()
+      const extraComponents: Component[] = []
+      for (const entry of registered) {
+        if (!c.areas.has(entry.area)) c.areas.set(entry.area, [])
+        for (const cData of entry.components) {
+          const hydrated = hydrateComponent(cData, c, 'inherited', editMode)
+          if (hydrated) {
+            hydrated.inheritedFrom = entry.fromPageId
+            extraComponents.push(hydrated)
+            if (entry.top) c.areas.get(entry.area)!.unshift(hydrated)
+            else c.areas.get(entry.area)!.push(hydrated)
+          }
+        }
+      }
+      componentsIncludingInherited.push(...extraComponents)
+      await Promise.all(extraComponents.map(async c => { c.fetched = await c.fetch() }))
     } catch (e: any) {
       c.logError(e)
     }
@@ -143,7 +162,7 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
 
   // if this is a variation, go ahead and render after the fetch phase
   if (extension && extension !== 'html') {
-    return renderVariation(extension)(pageComponent)
+    return renderVariation(extension, pageComponent)
   }
 
   // execute the context phase
@@ -152,7 +171,7 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
 
   // provide content for the <head> element and give it to the page component
   const fontfiles = new Map<string, { href: string, format: string }>()
-  const cssBlockNames = Array.from(new Set(componentsIncludingPage.flatMap(r => r.cssBlocks())))
+  const cssBlockNames = Array.from(new Set(componentsIncludingInherited.flatMap(r => r.cssBlocks())))
   const cssBlocks = cssBlockNames.map(name => ({ name, block: templateRegistry.cssblocks.get(name) })).filter(({ block }) => block != null)
   for (const { block } of cssBlocks) {
     for (const fontfile of block!.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
@@ -164,9 +183,40 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
     ...Array.from(fontfiles.values()).map(ff =>
       `<link rel="preload" as="font" href="${ff.href}" type="${ff.format}" crossorigin="anonymous">`
     ),
-    ...Array.from(new Set(componentsIncludingPage.flatMap(r => r.jsBlocks()))).map(name => ({ name, block: templateRegistry.jsblocks.get(name) })).filter(({ name, block }) => block != null).map(({ name, block }) =>
+    ...Array.from(new Set(componentsIncludingInherited.flatMap(r => r.jsBlocks()))).map(name => ({ name, block: templateRegistry.jsblocks.get(name) })).filter(({ name, block }) => block != null).map(({ name, block }) =>
       `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ' defer'}></script>`)
   ].join('\n')
   // execute the render phase
-  return renderComponent(editMode)(pageComponent)
+  return renderComponent(pageComponent)
+}
+
+Component.editBar = (path: string, opts: EditBarOpts) => {
+  if (!opts.editMode) return ''
+  const id = randomid()
+  if (opts.inheritedFrom) {
+    return `
+<div class="dg-edit-bar dg-edit-bar-inherited ${opts.extraClass ?? ''}">
+  <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
+  <button role="link" onclick="window.dgEditing.jump('${opts.inheritedFrom}')>Jump to Original</button>
+</div>
+    `.trim()
+  } else {
+    return `
+<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" draggable="true" ondragstart="window.dgEditing.drag(event)" ondragover="window.dgEditing.over(event)" ondragend="window.dgEditing.drop(event)">
+  <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
+  <button onclick="window.dgEditing.edit(event)" aria-describedby="${id}">Edit</button>
+  <button onclick="window.dgEditing.move(event)" aria-describedby="${id}">Move</button>
+  <button onclick="window.dgEditing.del(event)" aria-describedby="${id}">Trash</button>
+</div>
+    `.trim()
+  }
+}
+
+Component.newBar = (path: string, opts: EditBarOpts) => {
+  if (!opts.editMode || opts.inheritedFrom) return ''
+  return `
+<div role="button" onclick="window.dgEditing.create(event)" class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}">
+  ${htmlEncode(opts.label)}
+</div>
+  `.trim()
 }

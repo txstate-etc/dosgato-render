@@ -1,4 +1,4 @@
-import { Component, ComponentData } from '@dosgato/templating'
+import { Component, ComponentData, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface TextImageData extends ComponentData {
@@ -17,7 +17,7 @@ export class TextImageTemplate extends Component<TextImageData> {
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>) {
-    return `${this.editBar()}${this.data.title ? '<h2>' + htmlEncode(this.data.title) + '</h2>' : ''}<div class="dg-text-image">${this.data.text}</div><img src="${htmlEncode(this.data.image)}">`
+  render () {
+    return `${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-text-image">${this.data.text}</div><img src="${htmlEncode(this.data.image)}">`
   }
 }

@@ -28,7 +28,7 @@ const resignedCache = new Cache(async ({ token, path }: { token: string, path?: 
   }
 })
 
-const anonAPIClient = new RenderingAPIClient()
+const anonAPIClient = new RenderingAPIClient(true)
 const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: string }) => {
   const sub = await anonAPIClient.identifyToken(token)
   if (!sub) throw new HttpError(401)
@@ -52,7 +52,7 @@ async function resignToken (token: string, allowEmptyToken?: boolean, path?: str
   return await resignedCache.get({ token, path })
 }
 
-type APIClientClass = new <T extends APIClient> (token?: string) => T
+type APIClientClass = new <T extends APIClient> (published: boolean, token?: string) => T
 
 export class RenderingServer extends Server {
   private APIClient!: APIClientClass
@@ -71,7 +71,7 @@ export class RenderingServer extends Server {
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
         const token = await resignToken(getToken(req), published, path)
-        const api = new this.APIClient<RenderingAPIClient>(token)
+        const api = new this.APIClient<RenderingAPIClient>(!!published, token)
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion, published, version)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
@@ -88,7 +88,7 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
         const token = await resignToken(getToken(req), undefined, path)
-        const api = new this.APIClient<RenderingAPIClient>(token)
+        const api = new this.APIClient<RenderingAPIClient>(false, token)
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion)
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
@@ -196,7 +196,7 @@ export class RenderingServer extends Server {
     })
   }
 
-  async start (options?: number|{ port?: number, templates?: any[], providers?: (typeof ResourceProvider)[], CustomAPIClient?: APIClientClass }) {
+  async start (options?: number | { port?: number, templates?: any[], providers?: (typeof ResourceProvider)[], CustomAPIClient?: APIClientClass }) {
     const opts = typeof options === 'number' ? { port: options } : options
     this.APIClient = opts?.CustomAPIClient ?? RenderingAPIClient as APIClientClass
     await Promise.all([

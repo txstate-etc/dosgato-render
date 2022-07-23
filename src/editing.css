@@ -7,6 +7,9 @@
 .dg-edit-bar.selected {
   background-color: #BC8CBF;
 }
+.dg-edit-bar-label {
+  margin-right: auto;
+}
 
 .dg-new-bar {
   cursor: pointer;

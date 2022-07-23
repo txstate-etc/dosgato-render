@@ -5,13 +5,13 @@ import mime from 'mime-types'
 import semver from 'semver'
 import { resourceversion } from './version.js'
 
-function versionGreater (v2: string|undefined, v1: string|undefined) {
+function versionGreater (v2: string | undefined, v1: string | undefined) {
   if (v2 == null) return false
   if (v1 == null) return true
   return semver.gt(v2, v1)
 }
 
-function versionBreaking (v2: string|undefined, v1: string|undefined) {
+function versionBreaking (v2: string | undefined, v1: string | undefined) {
   if (v2 === v1) return false
   if (v1 == null || v2 == null) return false
   return semver.major(v1) !== semver.major(v2)
@@ -29,7 +29,7 @@ interface RegistryJSBlock extends JSBlock {
   map?: string
 }
 
-function versionWarning <T extends JSBlock|CSSBlock> (existing: T|undefined, block: T, type: string, key: string) {
+function versionWarning <T extends JSBlock | CSSBlock> (existing: T | undefined, block: T, type: string, key: string) {
   if (existing && existing.version !== block.version) {
     const breaking = versionBreaking(existing.version, block.version)
     const log = breaking ? console.warn : console.info
@@ -50,7 +50,7 @@ export class TemplateRegistry {
   public cssblocks: Map<string, RegistryCSSBlock> = new Map()
   public jsblocks: Map<string, RegistryJSBlock> = new Map()
   public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()
-  public all = [] as (typeof Component|typeof Page)[]
+  public all = [] as (typeof Component | typeof Page)[]
 
   async addTemplate (template: typeof Component | typeof Page) {
     if (!template.templateKey) throw new Error(`template ${template.name} has undefined templateKey, that must be corrected`)

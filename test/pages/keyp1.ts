@@ -1,4 +1,4 @@
-import { Page } from '@dosgato/templating'
+import { Page, RenderedComponent } from '@dosgato/templating'
 
 export class PageTemplate1 extends Page {
   static templateKey = 'keyp1'
@@ -8,7 +8,7 @@ export class PageTemplate1 extends Page {
 
   static jsBlocks = new Map()
 
-  render (renderedAreas: Map<string, string[]>) {
-    return `<!DOCTYPE html><html><head>${this.headContent}<script>window.editMode = ${String(this.editMode)}</script></head><body><main>${renderedAreas.get('main')?.join('') ?? ''}${this.newBar('main')}</main></body></html>`
+  render () {
+    return `<!DOCTYPE html><html><head>${this.headContent}</head><body><main>${this.renderComponents('main')}${this.newBar('main')}</main></body></html>`
   }
 }

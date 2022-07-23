@@ -6,7 +6,7 @@ export interface RichTextData extends ComponentData {
   text: string
 }
 
-export class RichTextTemplate extends Component<RichTextData> {
+export class RichTextTemplate extends Component<RichTextData, { processedText: string }> {
   static templateKey = 'richtext'
   static cssBlocks = new Map([
     ['richtext', {
@@ -16,11 +16,16 @@ export class RichTextTemplate extends Component<RichTextData> {
     }]
   ])
 
+  async fetch () {
+    const processedText = await this.api.processRich(this.data.text)
+    return { processedText }
+  }
+
   setContext <T extends ContextBase> (renderCtxFromParent: T) {
     return advanceHeader(renderCtxFromParent, this.data.title)
   }
 
-  render (renderedAreas: Map<string, string[]>) {
-    return `${this.editBar()}${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-rich-text">${this.data.text}</div>`
+  render () {
+    return `${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-rich-text">${this.fetched.processedText}</div>`
   }
 }

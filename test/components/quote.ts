@@ -17,7 +17,7 @@ export class QuoteTemplate extends Component<QuoteData> {
     }]
   ])
 
-  render (renderedAreas: Map<string, string[]>) {
-    return `${this.editBar()}<div class="dg-quote">${htmlEncode(this.data.quote)}<span class="dg-author">- ${htmlEncode(this.data.author)}</span></div>`
+  render () {
+    return `<div class="dg-quote">${htmlEncode(this.data.quote)}<span class="dg-author">- ${htmlEncode(this.data.author)}</span></div>`
   }
 }
