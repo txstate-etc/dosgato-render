@@ -1,8 +1,9 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageLink, PageRecord, replaceLinksInText } from '@dosgato/templating'
+import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageLink, PageLinkWithContext, PageRecord, replaceLinksInText } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
+import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
 import { Cache, ensureString, isBlank, keyby, pick, stringify } from 'txstate-utils'
-import { jwtSignKey } from './util.js'
+import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
 import cheerio from 'cheerio'
 import { parseDocument } from 'htmlparser2'
@@ -24,6 +25,7 @@ data (schemaversion: $schemaversion, published: $published, version: $version)
 const LAUNCHED_PAGE_QUERY = `
 query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { launchedUrls: [$launchUrl] }) {
+    site { id name launched url { path, prefix } }
     ${PAGE_INFO}
   }
 }
@@ -32,10 +34,22 @@ query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $publishe
 const PREVIEW_PAGE_QUERY = `
 query getPreviewPage ($pagetreeId: ID!, $schemaversion: DateTime!, $path: String!, $published: Boolean, $version: Int) {
   pages (filter: { pagetreeIds: [$pagetreeId], paths: [$path] }) {
+    site { id name launched url { path, prefix } }
     ${PAGE_INFO_VERSION}
   }
 }
 `
+interface PageRecordWithSiteInfo<DataType extends PageData = PageData> extends PageRecord<DataType> {
+  site: {
+    id: string
+    name: string
+    launched: boolean
+    url?: {
+      prefix: string
+      path: string
+    }
+  }
+}
 
 const anonToken = await new SignJWT({ sub: 'anonymous' })
   .setIssuer('dg-render')
@@ -114,6 +128,87 @@ const rootPageByPathLoader = new PrimaryKeyLoader({
 })
 rootPageByIdLoader.addIdLoader(rootPageByPathLoader)
 
+const PAGE_QUERY = `
+query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetreeIds: [ID!], $schemaversion: DateTime!, $published: Boolean) {
+  pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
+    site { id name launched url { path, prefix } }
+    ${PAGE_INFO}
+  }
+}`
+const PAGE_QUERY_NO_DATA = `
+query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetreeIds: [ID!]) {
+  pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
+    site { id name launched url { path, prefix } }
+    id
+    linkId
+    path
+  }
+}`
+const pageByIdLoader = new PrimaryKeyLoader({
+  fetch: async (ids: string[], api: RenderingAPIClient) => {
+    const { pages } = await api.query<{ pages: PageRecordWithSiteInfo[] }>(PAGE_QUERY, { ids, schemaversion, published: api.published })
+    return pages
+  },
+  extractId: p => p.id
+})
+const pageByPathLoader = new PrimaryKeyLoader({
+  fetch: async (paths: string[], api: RenderingAPIClient) => {
+    const samesitepaths: string[] = []
+    const othersitepaths: string[] = []
+    for (const path of paths) {
+      if (api.pagetreeId && api.sitename && path.startsWith('/' + api.sitename)) samesitepaths.push(path)
+      else othersitepaths.push(path)
+    }
+    const [samesitepages, othersitepages] = await Promise.all([
+      (async () => {
+        if (!samesitepaths.length) return []
+        const { pages } = await api.query<{ pages: PageRecordWithSiteInfo[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published, pagetreeIds: [api.pagetreeId] })
+        return pages
+      })(),
+      (async () => {
+        if (!othersitepaths.length) return []
+        const { pages } = await api.query<{ pages: PageRecordWithSiteInfo[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published })
+        return pages
+      })()
+    ])
+    return samesitepages.concat(othersitepages)
+  },
+  extractId: p => p.path,
+  idLoader: pageByIdLoader
+})
+pageByIdLoader.addIdLoader(pageByPathLoader)
+const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omit<PageRecordWithSiteInfo<PageData>, 'data'>>({
+  fetch: async (links, api: RenderingAPIClient) => {
+    if (api.pagetreeId) {
+      for (const link of links) link.context = { pagetreeId: api.pagetreeId }
+    }
+    const { pages } = await api.query(PAGE_QUERY_NO_DATA, { links })
+    return pages
+  },
+  scoreMatch: (link, page) => {
+    if (link.siteId !== page.site.id) return 0
+    if (link.linkId === page.linkId) return 2
+    if (link.path === page.path) return 1
+    return 0
+  }
+})
+const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecordWithSiteInfo>({
+  fetch: async (links, api: RenderingAPIClient) => {
+    if (api.pagetreeId) {
+      for (const link of links) link.context = { pagetreeId: api.pagetreeId }
+    }
+    const { pages } = await api.query<{ pages: PageRecordWithSiteInfo<PageData>[] }>(PAGE_QUERY, { links, published: api.published })
+    return pages
+  },
+  scoreMatch: (link, page) => {
+    if (link.siteId !== page.site.id) return 0
+    if (link.linkId === page.linkId) return 2
+    if (link.path === page.path) return 1
+    return 0
+  },
+  idLoader: [pageByIdLoader, pageByPathLoader]
+})
+
 const templateCache = new Cache(async (_, api: RenderingAPIClient) => {
   const { templates } = await api.query<{ templates: { key: string, name: string, templateProperties: any }[] }>(`
     query getTemplateInfo {
@@ -130,9 +225,18 @@ const templateCache = new Cache(async (_, api: RenderingAPIClient) => {
 export class RenderingAPIClient implements APIClient {
   dlf = new DataLoaderFactory(this)
   token: string
+  pagetreeId?: string
+  sitename?: string
+  sitePrefix?: string
+  context: 'live' | 'preview' | 'edit' = 'live'
+  contextOrigin: string
+  static contextPath = process.env.CONTEXT_PATH ?? ''
 
-  constructor (public published: boolean, token?: string) {
+  constructor (public published: boolean, token?: string, req?: FastifyRequest) {
     this.token = isBlank(token) ? anonToken : token
+    // req is only undefined when we are querying a token
+    // it will never be null when rendering a page
+    this.contextOrigin = req ? `${req.protocol}://${req.hostname}` : ''
   }
 
   async getAncestors ({ id, path }: { id?: string, path?: string }) {
@@ -149,19 +253,47 @@ export class RenderingAPIClient implements APIClient {
     return page.rootpage
   }
 
-  async getPage ({ id, path, link }: { id?: string, path?: string, link?: string | PageLink }) {
+  async getPage ({ id, path, link }: { id?: string, path?: string, link?: string | PageLinkWithContext }) {
     link = typeof link === 'string' ? JSON.parse(link) : link
-    const { pages } = await this.query<{ pages: PageRecord<PageData>[] }>(`
-    query getAncestorPages ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $schemaversion: DateTime!, $published: Boolean) {
-      pages (filter: { ids: $ids, paths: $paths, links: $links }) {
-        ${PAGE_INFO}
-      }
-    }`, { ids: id && [id], paths: path && [path], links: link && [link] })
-    return pages[0]
+    const page = (id && await this.dlf.get(pageByIdLoader).load(id)) ??
+    (path && await this.dlf.get(pageByPathLoader).load(path)) ??
+    (link && await this.dlf.get(pageByLinkLoader).load(link as PageLink))
+    if (!page) return undefined
+    return page
   }
 
-  async resolveLink (link: string | LinkDefinition, absolute?: boolean | undefined) {
-    return 'http://example.com' // TODO
+  async resolveLink (lnk: string | LinkDefinition, opts?: { absolute?: boolean, extension?: string }) {
+    const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
+    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return 'brokenlink'
+    if (link.type === 'url') return link.url // TODO: relative URLs or assume absolute?
+    if (link.type === 'page') {
+      const target = await this.dlf.get(pageByLinkWithoutDataLoader).load(link)
+      if (!target) return 'brokenlink'
+      let ret = ''
+      if (opts?.absolute || target.site.id !== link.siteId) {
+        // absolute launched url or fail if not launched
+        ret = resolvePath(target.site.url?.prefix, target.path)
+      } else if (opts?.absolute && this.context === 'preview') {
+        // absolute preview url
+        ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, target.path)
+      } else if (opts?.absolute && this.context === 'edit') {
+        // absolute edit url
+        ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, target.path)
+      } else if (this.context === 'live') {
+        // site-relative launched url
+        ret = resolvePath(target.site.url?.path, target.path)
+      } else if (this.context === 'edit') {
+        // site-relative edit url
+        ret = resolvePath(RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, target.path)
+      } else {
+        // site-relative preview
+        ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, target.path)
+      }
+      return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
+    } else if (link.type === 'asset') {
+      return 'http://example.com' // TODO
+    }
+    return 'brokenlink'
   }
 
   async processRich (text: string) {
@@ -191,13 +323,13 @@ export class RenderingAPIClient implements APIClient {
     return [] as any[] // TODO
   }
 
-  async getLaunchedPage (hostname: string, path: string, schemaversion: Date): Promise<PageRecord | undefined> {
-    const { pages } = await this.#query<{ pages: PageRecord[] }>(anonToken, LAUNCHED_PAGE_QUERY, { launchUrl: `http://${hostname}${path}`, schemaversion, published: true })
+  async getLaunchedPage (hostname: string, path: string, schemaversion: Date) {
+    const { pages } = await this.#query<{ pages: (PageRecord & { site: { url: { prefix: string } } })[] }>(anonToken, LAUNCHED_PAGE_QUERY, { launchUrl: `http://${hostname}${path}`, schemaversion, published: true })
     return pages[0]
   }
 
-  async getPreviewPage (pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number): Promise<PageRecord | undefined> {
-    const { pages } = await this.query<{ pages: PageRecord[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version })
+  async getPreviewPage (pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number) {
+    const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string }})[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version })
     return pages[0]
   }
 

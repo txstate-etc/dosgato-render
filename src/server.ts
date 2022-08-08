@@ -52,7 +52,7 @@ async function resignToken (token: string, allowEmptyToken?: boolean, path?: str
   return await resignedCache.get({ token, path })
 }
 
-type APIClientClass = new <T extends APIClient> (published: boolean, token?: string) => T
+type APIClientClass = new <T extends APIClient> (published: boolean, token: string | undefined, req: FastifyRequest) => T
 
 export class RenderingServer extends Server {
   private APIClient!: APIClientClass
@@ -71,8 +71,11 @@ export class RenderingServer extends Server {
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
         const token = await resignToken(getToken(req), published, path)
-        const api = new this.APIClient<RenderingAPIClient>(!!published, token)
+        const api = new this.APIClient<RenderingAPIClient>(!!published, token, req)
+        api.context = 'preview'
+        api.pagetreeId = req.params.pagetreeId
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion, published, version)
+        api.sitename = page.site.name
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
         return await renderPage(api, req.headers, page, extension, false)
@@ -88,8 +91,11 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
         const token = await resignToken(getToken(req), undefined, path)
-        const api = new this.APIClient<RenderingAPIClient>(false, token)
+        const api = new this.APIClient<RenderingAPIClient>(false, token, req)
+        api.context = 'edit'
+        api.pagetreeId = req.params.pagetreeId
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion)
+        api.sitename = page.site.name
         if (!page) throw new HttpError(404)
         void res.header('Content-Type', 'text/html')
         return await renderPage(api, req.headers, page, extension, true)
@@ -189,9 +195,12 @@ export class RenderingServer extends Server {
       const { path, extension } = parsePath(req.params['*'])
       if (!path || path === '/') throw new HttpError(404)
       if (!extension) return await res.redirect(301, `${path}.html`)
-      const page = await anonAPIClient.getLaunchedPage(req.hostname, path, schemaversion)
+      const api = new this.APIClient<RenderingAPIClient>(true, undefined, req)
+      api.context = 'live'
+      const page = await api.getLaunchedPage(req.hostname, path, schemaversion)
       if (!page) throw new HttpError(404)
       void res.type('text/html')
+      api.sitePrefix = page.site.url.prefix
       return await renderPage(anonAPIClient, req.headers, page, extension, false)
     })
   }
