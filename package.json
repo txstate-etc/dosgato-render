@@ -1,6 +1,6 @@
 {
   "name": "@dosgato/render",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Library providing the rendering server for DosGato CMS.",
   "type": "module",
   "exports": {
@@ -48,5 +48,5 @@
     "url": "https://github.com/txstate-etc/dosgato-render/issues"
   },
   "homepage": "https://github.com/txstate-etc/dosgato-render#readme",
-  "files": ["dist", "dist-esm"]
+  "files": ["dist"]
 }
