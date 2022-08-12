@@ -169,7 +169,7 @@ export class RenderingServer extends Server {
     /**
      * Route for serving JS that supports the editing UI
      */
-    const editingJs = readFileSync(new URL('./editing.js', import.meta.url))
+    const editingJs = readFileSync(new URL('./static/editing.js', import.meta.url))
     this.app.get('/.editing/edit.js', async (req, res) => {
       void res.header('Content-Type', 'application/javascript')
       return editingJs
@@ -178,7 +178,7 @@ export class RenderingServer extends Server {
     /**
      * Route for serving CSS that supports the editing UI
      */
-    const editingCss = readFileSync(new URL('./editing.css', import.meta.url))
+    const editingCss = readFileSync(new URL('./static/editing.css', import.meta.url))
     this.app.get('/.editing/edit.css', async (req, res) => {
       void res.header('Content-Type', 'text/css')
       return editingCss
