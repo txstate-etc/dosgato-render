@@ -134,6 +134,7 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
   const componentsIncludingInherited = [...componentsIncludingPage]
   await Promise.all(componentsIncludingPage.map(async c => {
     try {
+      c.api = api
       c.autoLabel = templateByKey[c.data.templateKey]?.name
       const registered: { area: string, components: ComponentData[], top: boolean, fromPageId: string }[] = []
       c.registerInherited = (area, components, fromPageId, top) => {
