@@ -77,8 +77,7 @@ export class RenderingServer extends Server {
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion, published, version)
         api.sitename = page.site.name
         if (!page) throw new HttpError(404)
-        void res.header('Content-Type', 'text/html')
-        return await renderPage(api, req.headers, page, extension, false)
+        return await renderPage(api, req, res, page, extension, false)
       }
     )
 
@@ -97,8 +96,7 @@ export class RenderingServer extends Server {
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion)
         api.sitename = page.site.name
         if (!page) throw new HttpError(404)
-        void res.header('Content-Type', 'text/html')
-        return await renderPage(api, req.headers, page, extension, true)
+        return await renderPage(api, req, res, page, extension, true)
       }
     )
 
@@ -199,9 +197,8 @@ export class RenderingServer extends Server {
       api.context = 'live'
       const page = await api.getLaunchedPage(req.hostname, path, schemaversion)
       if (!page) throw new HttpError(404)
-      void res.type('text/html')
       api.sitePrefix = page.site.url.prefix
-      return await renderPage(anonAPIClient, req.headers, page, extension, false)
+      return await renderPage(anonAPIClient, req, res, page, extension, false)
     })
   }
 

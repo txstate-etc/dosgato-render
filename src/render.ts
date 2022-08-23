@@ -1,9 +1,11 @@
-import { IncomingHttpHeaders } from 'http'
 import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent } from '@dosgato/templating'
+import { FastifyRequest, FastifyReply } from 'fastify'
+import { ParsedUrlQuery } from 'querystring'
 import { templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 import { RenderingAPIClient } from './api.js'
 import { randomid, htmlEncode } from 'txstate-utils'
+import { mimeTypes } from './mimetypes.js'
 
 // recursive helper function to traverse a hydrated page and return a flat array
 // of Component instances
@@ -123,8 +125,10 @@ function editModeIncludes () {
  * Any migrations should be completed before rendering a page. They probably already happened
  * in the API Server.
  */
-export async function renderPage (api: RenderingAPIClient, requestHeaders: IncomingHttpHeaders, page: PageRecord, extension = 'html', editMode = false) {
+export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
+  void res.type(mimeTypes[extension] ?? 'text/plain')
   const pageComponent = hydratePage(page, editMode)
+  pageComponent.addHeader = (key: string, value: string | undefined) => value != null ? res.header(key, value) : res.removeHeader(key)
   const componentsIncludingPage = collectComponents(pageComponent)
 
   const templateByKey = await api.getTemplates()
@@ -135,6 +139,8 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
   await Promise.all(componentsIncludingPage.map(async c => {
     try {
       c.api = api
+      c.reqHeaders = req.headers
+      c.reqQuery = req.query as ParsedUrlQuery
       c.autoLabel = templateByKey[c.data.templateKey]?.name
       const registered: { area: string, components: ComponentData[], top: boolean, fromPageId: string }[] = []
       c.registerInherited = (area, components, fromPageId, top) => {
@@ -162,12 +168,12 @@ export async function renderPage (api: RenderingAPIClient, requestHeaders: Incom
   }))
 
   // if this is a variation, go ahead and render after the fetch phase
-  if (extension && extension !== 'html') {
+  if (extension !== 'html') {
     return renderVariation(extension, pageComponent)
   }
 
   // execute the context phase
-  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 1, requestHeaders })
+  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 1 })
   await executeSetContext(editMode)(pageComponent)
 
   // provide content for the <head> element and give it to the page component
