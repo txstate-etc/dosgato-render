@@ -7,6 +7,7 @@ import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
 import cheerio from 'cheerio'
 import { parseDocument } from 'htmlparser2'
+import { HttpError } from 'fastify-txstate'
 
 const PAGE_INFO = `
 id
@@ -348,24 +349,21 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async #query <T = any> (token: string, query: string, variables?: any) {
-    try {
-      const resp = await fetch(process.env.DOSGATO_API_URL!, {
-        method: 'POST',
-        mode: 'no-cors',
-        cache: 'no-cache',
-        referrerPolicy: 'no-referrer',
-        body: stringify({ query, variables }),
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      const body = await resp.json()
-      if (body.errors?.length) throw new Error(body.errors[0].message)
-      return body.data as T
-    } catch (e: any) {
-      throw new Error(e.message)
-    }
+    const resp = await fetch(process.env.DOSGATO_API_URL!, {
+      method: 'POST',
+      mode: 'no-cors',
+      cache: 'no-cache',
+      referrerPolicy: 'no-referrer',
+      body: stringify({ query, variables }),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    if (resp.status >= 400) throw new HttpError(resp.status)
+    const body = await resp.json()
+    if (body.errors?.length) throw new Error(body.errors[0].message)
+    return body.data as T
   }
 
   async query <T = any> (query: string, variables?: any) {

@@ -14,19 +14,23 @@ const resignedCache = new Cache(async ({ token, path }: { token: string, path?: 
   try {
     const payload = decodeJwt(token)
     if (payload.iss === 'dg-render-temporary') {
-      if (!await jwtVerify(token, jwtSignKey)) throw new HttpError(401)
+      try {
+        if (!await jwtVerify(token, jwtSignKey)) throw new HttpError(401)
+      } catch {
+        throw new HttpError(401)
+      }
       if (path !== payload.path) throw new HttpError(403)
       token = await new SignJWT({ sub: payload.sub })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuer('dg-render')
-        .setExpirationTime('15 minute')
+        .setExpirationTime('2 hour')
         .sign(jwtSignKey)
     }
     return token
   } catch (e: any) {
     throw new HttpError(401)
   }
-})
+}, { freshseconds: 1800 })
 
 const anonAPIClient = new RenderingAPIClient(true)
 const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: string }) => {
@@ -35,11 +39,9 @@ const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: 
   return await new SignJWT({ sub, path })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('dg-render-temporary')
-    .setExpirationTime('2 hour')
+    .setExpirationTime('1 hour')
     .sign(jwtSignKey)
-}, {
-  freshseconds: 1800
-})
+}, { freshseconds: 1800 })
 
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
