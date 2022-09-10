@@ -1,4 +1,5 @@
-import { RenderingServer } from '../src/index.js'
+import { getFilePath, RenderingServer } from '../src/index.js'
+import { templateRegistry } from '../src/registry.js'
 import { resourceversion } from '../src/version.js'
 import { LinkTemplate } from './components/link.js'
 import { PanelTemplate } from './components/panel.js'
@@ -11,6 +12,7 @@ import { PageTemplate3 } from './pages/keyp3.js'
 import { PageTemplate4 } from './pages/keyp4.js'
 
 const server = new RenderingServer()
+templateRegistry.sassMixinPath = getFilePath(import.meta.url, 'mixins.scss')
 await server.start({
   templates: [
     PageTemplate1,

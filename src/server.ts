@@ -147,11 +147,11 @@ export class RenderingServer extends Server {
       void res.header('Cache-Control', 'max-age=31536000, immutable')
       if ('css' in block && extension === 'css') {
         void res.type('text/css')
-        if ((block.map?.length ?? 0) > 0) void res.header('SourceMap', `/.resources/${req.params.version}/${blockName}.css.map`)
+        if (block.map?.length) void res.header('SourceMap', `/.resources/${req.params.version}/${blockName}.css.map`)
         return block.css
       } else if ('js' in block && extension === 'js') {
         void res.type('text/javascript')
-        if ((block.map?.length ?? 0) > 0) void res.header('SourceMap', `/.resources/${req.params.version}/${blockName}.js.map`)
+        if (block.map?.length) void res.header('SourceMap', `/.resources/${req.params.version}/${blockName}.js.map`)
         return block.js
       } else if (extension === 'css.map' && 'map' in block) {
         return block.map ?? ''

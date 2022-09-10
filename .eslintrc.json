@@ -15,6 +15,7 @@
         "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-unused-vars": "off", // typescript does this better
         "@typescript-eslint/prefer-nullish-coalescing": ["error", { "ignoreConditionalTests": true }], // this is supposed to be the default but apparently standard-with-typescript overrode it to something stupid
+        "@typescript-eslint/prefer-readonly": "off",
         "@typescript-eslint/require-await": "off",
         "@typescript-eslint/restrict-template-expressions": ["error", { "allowAny": true }], // `${myVar}` is fine if myVar is `any`
         "@typescript-eslint/return-await": ["error", "always"],

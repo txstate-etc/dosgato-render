@@ -1,4 +1,6 @@
 import { createSecretKey } from 'node:crypto'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export function parsePath (path: string) {
   path = path.trim().toLocaleLowerCase()
@@ -22,3 +24,7 @@ export function resolvePreviewPath (prefix: string | undefined, pagePath: string
 }
 
 export const jwtSignKey = createSecretKey(process.env.DOSGATO_RENDER_JWT_SECRET!, 'ascii')
+
+export function getFilePath (importURL: string, relativePath: string) {
+  return path.resolve(path.dirname(fileURLToPath(importURL)), relativePath)
+}

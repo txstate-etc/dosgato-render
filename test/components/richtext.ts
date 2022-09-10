@@ -11,8 +11,11 @@ export class RichTextTemplate extends Component<RichTextData, { processedText: s
   static cssBlocks = new Map([
     ['richtext', {
       css: `
+        @use 'mixins';
         .dg-rich-text img { max-width: 100%; }
-      `
+        .sr-only { @include mixins.sr-only(); }
+      `,
+      sass: true
     }]
   ])
 

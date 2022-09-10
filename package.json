@@ -14,13 +14,15 @@
     "start": "node --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
-    "@dosgato/templating": "^0.0.56",
+    "@dosgato/templating": "^0.0.57",
     "cheerio": "^1.0.0-rc.12",
     "dataloader-factory": "^4.4.0",
     "esbuild": "^0.15.6",
-    "fastify-txstate": "^3.0.0",
+    "fastify-txstate": "^3.0.1",
+    "file-type": "^18.0.0",
     "jose": "^4.8.1",
     "mime-types": "^2.1.34",
+    "sass": "^1.54.9",
     "semver": "^7.3.5",
     "txstate-utils": "^1.7.3"
   },
