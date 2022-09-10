@@ -12,7 +12,6 @@ import { PageTemplate3 } from './pages/keyp3.js'
 import { PageTemplate4 } from './pages/keyp4.js'
 
 const server = new RenderingServer()
-templateRegistry.sassMixinPath = getFilePath(import.meta.url, 'mixins.scss')
 await server.start({
   templates: [
     PageTemplate1,

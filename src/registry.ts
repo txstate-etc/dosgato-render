@@ -1,4 +1,4 @@
-import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock, FileDeclaration } from '@dosgato/templating'
+import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock, FileDeclaration, SCSSInclude } from '@dosgato/templating'
 import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
@@ -31,6 +31,8 @@ interface RegistryJSBlock extends JSBlock {
   map?: string
 }
 
+type RegistrySCSSInclude = SCSSInclude & { scss: string }
+
 function versionWarning <T extends JSBlock | CSSBlock> (existing: T | undefined, block: T, type: string, key: string) {
   if (existing && existing.version !== block.version) {
     const breaking = versionBreaking(existing.version, block.version)
@@ -39,17 +41,18 @@ function versionWarning <T extends JSBlock | CSSBlock> (existing: T | undefined,
   }
 }
 
-const importerUrl = new URL('http://dosgato-mixins.org')
 class SimpleImporter {
   canonicalize (url: string, options: { fromImport: boolean }) {
-    return templateRegistry.sassMixinString ? importerUrl : null
+    if (templateRegistry.sassincludes.has(url)) return new URL(`http://dosgato-mixins.org/${url}`)
+    return null
   }
 
   load (canonicalUrl: URL) {
-    console.log(templateRegistry.sassMixinString)
-    return { contents: templateRegistry.sassMixinString!, syntax: 'scss' as const }
+    const name = canonicalUrl.pathname.substring(1)
+    return { contents: templateRegistry.sassincludes.get(name)!.scss, syntax: 'scss' as const, sourceMapUrl: canonicalUrl }
   }
 }
+const importer = new SimpleImporter()
 
 /**
  * This registry will get filled with Component and Page objects upon server startup. Each
@@ -65,14 +68,7 @@ export class TemplateRegistry {
   public jsblocks: Map<string, RegistryJSBlock> = new Map()
   public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()
   public all = [] as (typeof Component | typeof Page)[]
-  public sassMixinPath?: string
-  #sassMixinString?: string
-  get sassMixinString () {
-    this.#sassMixinString ??= this.sassMixinPath && readFileSync(this.sassMixinPath, 'utf8')
-    return this.#sassMixinString
-  }
-
-  protected sassImporter = new SimpleImporter()
+  public sassincludes = new Map<string, RegistrySCSSInclude>()
 
   async addTemplate (template: typeof Component | typeof Page) {
     if (!template.templateKey) throw new Error(`template ${template.name} has undefined templateKey, that must be corrected`)
@@ -107,9 +103,9 @@ export class TemplateRegistry {
         let css = finalBlock.css ?? readFileSync(finalBlock.path!, 'utf8')
         finalBlock.fontfiles = this.findFontFiles(css)
         if (finalBlock.sass) {
-          const compiled = sass.compileString(css, { sourceMap: true, sourceMapIncludeSources: true, importer: this.sassImporter })
+          const compiled = sass.compileString(css, { sourceMap: true, sourceMapIncludeSources: true, importer })
           compiled.sourceMap!.file = `${key}.scss`
-          compiled.sourceMap!.sources = [`${key}.scss`, 'mixins.scss']
+          compiled.sourceMap!.sources = [`${key}.scss`, ...compiled.sourceMap!.sources.slice(1).map(u => new URL(u).pathname.substring(1) + '.scss')]
           css = `${compiled.css}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,${Buffer.from(JSON.stringify(compiled.sourceMap), 'utf-8').toString('base64')} */`
         }
         promises.push(transform(css, { loader: 'css', minify: true, sourcemap: true, legalComments: 'none', sourcefile: `${key}.css` }).then(async minified => {
@@ -153,6 +149,18 @@ export class TemplateRegistry {
       if (match[2] === 'woff2') ret.set(match[1], { href: match[1], format: 'font/woff2' })
     }
     return Array.from(ret.values())
+  }
+
+  registerSass <T extends typeof ResourceProvider> (template: T) {
+    for (const [key, block] of template.scssIncludes.entries()) {
+      const existing = this.sassincludes.get(key)
+      versionWarning(existing, block, 'SASS', key)
+      if (!existing || versionGreater(block.version, existing.version)) {
+        const finalBlock = block as RegistrySCSSInclude
+        finalBlock.scss = finalBlock.scss ?? readFileSync(finalBlock.path!, 'utf8')
+        this.sassincludes.set(key, finalBlock)
+      }
+    }
   }
 }
 

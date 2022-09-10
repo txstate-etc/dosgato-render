@@ -1,5 +1,6 @@
 import { advanceHeader, Component, ComponentData, ContextBase, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
+import { getFilePath } from '../../src/index.js'
 
 export interface RichTextData extends ComponentData {
   title: string
@@ -11,11 +12,21 @@ export class RichTextTemplate extends Component<RichTextData, { processedText: s
   static cssBlocks = new Map([
     ['richtext', {
       css: `
-        @use 'mixins';
+        @use 'sr-only' as sr;
+        @use 'center';
         .dg-rich-text img { max-width: 100%; }
-        .sr-only { @include mixins.sr-only(); }
+        .sr-only { @include sr.sr-only(); }
       `,
       sass: true
+    }]
+  ])
+
+  static scssIncludes = new Map([
+    ['sr-only', {
+      path: getFilePath(import.meta.url, 'sr-only.scss')
+    }],
+    ['center', {
+      path: getFilePath(import.meta.url, 'center.scss')
     }]
   ])
 

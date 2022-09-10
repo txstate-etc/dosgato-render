@@ -207,9 +207,12 @@ export class RenderingServer extends Server {
   async start (options?: number | { port?: number, templates?: any[], providers?: (typeof ResourceProvider)[], CustomAPIClient?: APIClientClass }) {
     const opts = typeof options === 'number' ? { port: options } : options
     this.APIClient = opts?.CustomAPIClient ?? RenderingAPIClient as APIClientClass
+    for (const p of [...(opts?.providers ?? []), ...(opts?.templates ?? [])]) {
+      templateRegistry.registerSass(p)
+    }
     await Promise.all([
-      ...(opts?.templates ?? []).map(async t => await this.addTemplate(t)),
-      ...(opts?.providers ?? []).map(async p => await this.addProvider(p))
+      ...(opts?.providers ?? []).map(async p => await this.addProvider(p)),
+      ...(opts?.templates ?? []).map(async t => await this.addTemplate(t))
     ])
     return await super.start(opts?.port)
   }
