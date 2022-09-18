@@ -1,11 +1,12 @@
 import { type APIClient, ResourceProvider } from '@dosgato/templating'
 import { FastifyRequest } from 'fastify'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
+import { fileTypeFromFile } from 'file-type'
 import { createReadStream, readFileSync } from 'fs'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import { Cache } from 'txstate-utils'
 import { RenderingAPIClient } from './api.js'
-import { templateRegistry } from './registry.js'
+import { RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
 import { jwtSignKey, parsePath } from './util.js'
 import { schemaversion } from './version.js'
@@ -157,10 +158,12 @@ export class RenderingServer extends Server {
         return block.map ?? ''
       } else if (extension === 'js.map' && 'map' in block) {
         return block.map ?? ''
-      } else if (block.path && 'mime' in block) {
-        const instream = createReadStream(block.path)
-        void res.header('Content-Length', block.length)
-        void res.header('Content-Type', block.mime)
+      } else if (block.path) {
+        const fileblock = block as RegistryFile
+        const mime = fileblock.mime ?? await fileTypeFromFile(fileblock.path)
+        const instream = createReadStream(fileblock.path)
+        void res.header('Content-Length', fileblock.size)
+        void res.header('Content-Type', mime)
         return await res.send(instream)
       }
       throw new HttpError(404)

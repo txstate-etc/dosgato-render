@@ -128,7 +128,10 @@ function editModeIncludes () {
 export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
   void res.type(mimeTypes[extension] ?? 'text/plain')
   const pageComponent = hydratePage(page, editMode)
-  pageComponent.addHeader = (key: string, value: string | undefined) => value != null ? res.header(key, value) : res.removeHeader(key)
+  pageComponent.addHeader = (key: string, value: string | undefined) => {
+    if (value != null) void res.header(key, value)
+    else void res.removeHeader(key)
+  }
   const componentsIncludingPage = collectComponents(pageComponent)
 
   const templateByKey = await api.getTemplates()

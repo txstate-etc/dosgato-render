@@ -19,7 +19,7 @@ function versionBreaking (v2: string | undefined, v1: string | undefined) {
   return semver.major(v1) !== semver.major(v2)
 }
 
-interface RegistryCSSBlock extends CSSBlock {
+export interface RegistryCSSBlock extends CSSBlock {
   fontfiles?: {
     href: string
     format: string
@@ -27,11 +27,17 @@ interface RegistryCSSBlock extends CSSBlock {
   map?: string
 }
 
-interface RegistryJSBlock extends JSBlock {
+export interface RegistryJSBlock extends JSBlock {
   map?: string
 }
 
-type RegistrySCSSInclude = SCSSInclude & { scss: string }
+export interface RegistryFile extends FileDeclaration {
+  size: number
+  mime: string
+  extension?: string
+}
+
+export type RegistrySCSSInclude = SCSSInclude & { scss: string }
 
 function versionWarning <T extends JSBlock | CSSBlock> (existing: T | undefined, block: T, type: string, key: string) {
   if (existing && existing.version !== block.version) {
@@ -66,7 +72,7 @@ export class TemplateRegistry {
   public components: Map<string, new (component: ComponentData, path: string, parent: Component, editMode: boolean) => Component> = new Map()
   public cssblocks: Map<string, RegistryCSSBlock> = new Map()
   public jsblocks: Map<string, RegistryJSBlock> = new Map()
-  public files: Map<string, { path: string, version?: string, extension?: string, mime: string, length: number }> = new Map()
+  public files: Map<string, RegistryFile> = new Map()
   public all = [] as (typeof Component | typeof Page)[]
   public sassincludes = new Map<string, RegistrySCSSInclude>()
 
@@ -94,6 +100,21 @@ export class TemplateRegistry {
         }))
       }
     }
+    for (const [key, block] of template.files.entries()) {
+      const existing = this.files.get(key)
+      if (!existing || versionGreater(block.version, existing.version)) {
+        const stat = statSync(block.path)
+        if (!block.mime) block.mime = (await fileTypeFromFile(block.path))?.mime
+        if (!block.mime) continue // no mime type, no file
+        const ext = mime.extension(block.mime)
+        this.files.set(key, { ...block as Required<FileDeclaration>, size: stat.size, extension: ext || undefined })
+
+        // write back to the component's `webpaths` property so it will know where its files
+        // live on the rendering server
+        const webpath = `${process.env.RESOURCES_PREFIX ?? ''}/.resources/${resourceversion}/${key}${ext ? '.' + ext : ''}`
+        template.webpaths.set(key, webpath)
+      }
+    }
     for (const [key, block] of template.cssBlocks.entries()) {
       const existing = this.cssblocks.get(key)
       versionWarning(existing, block, 'CSS', key)
@@ -101,7 +122,19 @@ export class TemplateRegistry {
         this.cssblocks.set(key, block)
         const finalBlock = block as RegistryCSSBlock
         let css = finalBlock.css ?? readFileSync(finalBlock.path!, 'utf8')
-        finalBlock.fontfiles = this.findFontFiles(css)
+
+        const fonts = new Map<string, { href: string, format: string }>()
+        const matches = css.matchAll(/url\((.*?)\)\s+format\(['"](.*?)['"]\);/ig)
+        for (const match of matches ?? []) {
+          let href = match[1]
+          if (this.files.has(match[1])) {
+            href = template.webpaths.get(href)!
+            css = css.replace(new RegExp('url\\(' + match[1] + '\\)'), `url(${href})`)
+          }
+          if (match[2] === 'woff2') fonts.set(href, { href, format: 'font/woff2' })
+        }
+        finalBlock.fontfiles = Array.from(fonts.values())
+
         if (finalBlock.sass) {
           const compiled = sass.compileString(css, { sourceMap: true, sourceMapIncludeSources: true, importer })
           compiled.sourceMap!.file = `${key}.scss`
@@ -112,21 +145,6 @@ export class TemplateRegistry {
           finalBlock.css = minified.code
           finalBlock.map = minified.map
         }))
-      }
-    }
-    for (const [key, block] of template.files.entries()) {
-      const existing = this.files.get(key)
-      if (!existing || versionGreater(block.version, existing.version)) {
-        const stat = statSync(block.path)
-        if (!block.mime) block.mime = (await fileTypeFromFile(block.path))?.mime
-        if (!block.mime) continue // no mime type, no file
-        const ext = mime.extension(block.mime)
-        this.files.set(key, { ...block as Required<FileDeclaration>, length: stat.size, extension: ext || undefined })
-
-        // write back to the component's `webpaths` property so it will know where its files
-        // live on the rendering server
-        const webpath = `/.resources/${resourceversion}/${key}${ext ? '.' + ext : ''}`
-        template.webpaths.set(key, webpath)
       }
     }
     await Promise.all(promises)
@@ -140,15 +158,6 @@ export class TemplateRegistry {
 
   getTemplate (templateKey: string) {
     return this.pages.get(templateKey) ?? this.components.get(templateKey)
-  }
-
-  protected findFontFiles (css: string) {
-    const ret = new Map<string, { href: string, format: string }>()
-    const matches = css.match(/url\((.*?)\)\s+format\(['"](.*?)['"]\);/i)
-    for (const match of matches ?? []) {
-      if (match[2] === 'woff2') ret.set(match[1], { href: match[1], format: 'font/woff2' })
-    }
-    return Array.from(ret.values())
   }
 
   registerSass <T extends typeof ResourceProvider> (template: T) {
