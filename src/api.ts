@@ -1,4 +1,4 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageLink, PageLinkWithContext, PageRecord, replaceLinksInText } from '@dosgato/templating'
+import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageLink, PageLinkWithContext, PageRecord, PageRecordOptionalData, replaceLinksInText } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
@@ -14,6 +14,7 @@ id
 linkId
 path
 data (schemaversion: $schemaversion, published: $published)
+site { id name launched url { path, prefix } }
 `
 
 const PAGE_INFO_VERSION = `
@@ -21,12 +22,12 @@ id
 linkId
 path
 data (schemaversion: $schemaversion, published: $published, version: $version)
+site { id name launched url { path, prefix } }
 `
 
 const LAUNCHED_PAGE_QUERY = `
 query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { launchedUrls: [$launchUrl] }) {
-    site { id name launched url { path, prefix } }
     ${PAGE_INFO}
   }
 }
@@ -35,22 +36,10 @@ query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $publishe
 const PREVIEW_PAGE_QUERY = `
 query getPreviewPage ($pagetreeId: ID!, $schemaversion: DateTime!, $path: String!, $published: Boolean, $version: Int) {
   pages (filter: { pagetreeIds: [$pagetreeId], paths: [$path] }) {
-    site { id name launched url { path, prefix } }
     ${PAGE_INFO_VERSION}
   }
 }
 `
-interface PageRecordWithSiteInfo<DataType extends PageData = PageData> extends PageRecord<DataType> {
-  site: {
-    id: string
-    name: string
-    launched: boolean
-    url?: {
-      prefix: string
-      path: string
-    }
-  }
-}
 
 const anonToken = await new SignJWT({ sub: 'anonymous' })
   .setIssuer('dg-render')
@@ -147,7 +136,7 @@ query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetr
 }`
 const pageByIdLoader = new PrimaryKeyLoader({
   fetch: async (ids: string[], api: RenderingAPIClient) => {
-    const { pages } = await api.query<{ pages: PageRecordWithSiteInfo[] }>(PAGE_QUERY, { ids, schemaversion, published: api.published })
+    const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { ids, schemaversion, published: api.published })
     return pages
   },
   extractId: p => p.id
@@ -163,12 +152,12 @@ const pageByPathLoader = new PrimaryKeyLoader({
     const [samesitepages, othersitepages] = await Promise.all([
       (async () => {
         if (!samesitepaths.length) return []
-        const { pages } = await api.query<{ pages: PageRecordWithSiteInfo[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published, pagetreeIds: [api.pagetreeId] })
+        const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published, pagetreeIds: [api.pagetreeId] })
         return pages
       })(),
       (async () => {
         if (!othersitepaths.length) return []
-        const { pages } = await api.query<{ pages: PageRecordWithSiteInfo[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published })
+        const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published })
         return pages
       })()
     ])
@@ -178,7 +167,7 @@ const pageByPathLoader = new PrimaryKeyLoader({
   idLoader: pageByIdLoader
 })
 pageByIdLoader.addIdLoader(pageByPathLoader)
-const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omit<PageRecordWithSiteInfo<PageData>, 'data'>>({
+const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omit<PageRecord<PageData>, 'data'>>({
   fetch: async (links, api: RenderingAPIClient) => {
     if (api.pagetreeId) {
       for (const link of links) link.context = { pagetreeId: api.pagetreeId }
@@ -193,12 +182,12 @@ const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omi
     return 0
   }
 })
-const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecordWithSiteInfo>({
+const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
     if (api.pagetreeId) {
       for (const link of links) link.context = { pagetreeId: api.pagetreeId }
     }
-    const { pages } = await api.query<{ pages: PageRecordWithSiteInfo<PageData>[] }>(PAGE_QUERY, { links, published: api.published })
+    const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links, published: api.published })
     return pages
   },
   scoreMatch: (link, page) => {
@@ -270,31 +259,35 @@ export class RenderingAPIClient implements APIClient {
     if (link.type === 'page') {
       const target = await this.dlf.get(pageByLinkWithoutDataLoader).load(link)
       if (!target) return 'brokenlink'
-      let ret = ''
-      if (opts?.absolute || target.site.id !== link.siteId) {
-        // absolute launched url or fail if not launched
-        ret = resolvePath(target.site.url?.prefix, target.path)
-      } else if (opts?.absolute && this.context === 'preview') {
-        // absolute preview url
-        ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, target.path)
-      } else if (opts?.absolute && this.context === 'edit') {
-        // absolute edit url
-        ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, target.path)
-      } else if (this.context === 'live') {
-        // site-relative launched url
-        ret = resolvePath(target.site.url?.path, target.path)
-      } else if (this.context === 'edit') {
-        // site-relative edit url
-        ret = resolvePath(RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, target.path)
-      } else {
-        // site-relative preview
-        ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, target.path)
-      }
-      return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
+      return this.getHref(target, opts)
     } else if (link.type === 'asset') {
       return 'http://example.com' // TODO
     }
     return 'brokenlink'
+  }
+
+  getHref (page: PageRecordOptionalData, opts?: { absolute?: boolean, extension?: string }) {
+    let ret = ''
+    if (opts?.absolute || page.site.name !== this.sitename) {
+      // absolute launched url or fail if not launched
+      ret = resolvePath(page.site.url?.prefix, page.path)
+    } else if (opts?.absolute && this.context === 'preview') {
+      // absolute preview url
+      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, page.path)
+    } else if (opts?.absolute && this.context === 'edit') {
+      // absolute edit url
+      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, page.path)
+    } else if (this.context === 'live') {
+      // site-relative launched url
+      ret = resolvePath(page.site.url?.path, page.path)
+    } else if (this.context === 'edit') {
+      // site-relative edit url
+      ret = resolvePath(RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, page.path)
+    } else {
+      // site-relative preview
+      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, page.path)
+    }
+    return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
 
   async processRich (text: string) {
