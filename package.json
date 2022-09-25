@@ -18,7 +18,7 @@
     "cheerio": "^1.0.0-rc.12",
     "dataloader-factory": "^4.4.1",
     "esbuild": "^0.15.6",
-    "fastify-txstate": "^3.0.4",
+    "fastify-txstate": "^3.0.6",
     "file-type": "^18.0.0",
     "jose": "^4.8.1",
     "mime-types": "^2.1.34",

@@ -1,8 +1,7 @@
 .dg-edit-bar {
   border: 2px solid #BC8CBF;
-  display: flex;
   justify-content: flex-end;
-  align-items: center;
+  padding: 0.2rem 1rem;
 }
 .dg-edit-bar.selected {
   background-color: #BC8CBF;
@@ -14,12 +13,39 @@
 .dg-new-bar {
   cursor: pointer;
   border: 2px dashed #bc8cbf;
+  padding: 0.6rem 1rem;
 }
 
 .dg-edit-bar, .dg-new-bar {
+  display: flex;
+  align-items: center;
   font-size: 12px;
   text-transform: uppercase;
   font-family: sans-serif;
   background-color: rgba(235,232,232,0.59);
-  padding: 0.6rem 1rem;
+}
+
+.dg-edit-bar button {
+  padding: 0.1em 0.4em;
+  cursor: pointer;
+  margin-left: 0.1em;
+}
+
+.dg-new-bar svg, .dg-edit-bar svg {
+  display: inline-block;
+  width: 1.8em;
+  height: 1.8em;
+}
+
+.dg-new-bar svg {
+  margin-right: 0.5em;
+}
+
+.dg-new-bar span {
+  padding-top: 1px;
+}
+
+.dg-edit-bar.dg-edit-over, .dg-new-bar.dg-edit-over {
+  border-color: #6a3a6e;
+  background-color: rgba(173, 172, 172, 0.8);
 }

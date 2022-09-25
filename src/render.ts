@@ -114,7 +114,7 @@ function hydratePage (pageData: PageRecord, editMode: boolean) {
 }
 
 function editModeIncludes () {
-  return '<script src="/.editing/edit.js" async></script><link rel="stylesheet" href="/.editing/edit.css">'
+  return '<script src="/.editing/edit.js" defer></script><link rel="stylesheet" href="/.editing/edit.css">'
 }
 
 /**
@@ -200,6 +200,11 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   return renderComponent(pageComponent)
 }
 
+const addIcon = '<svg version="2.0"><use href="#dg-ed-add"/></svg>'
+const editIcon = '<svg version="2.0"><use href="#dg-ed-edit"/></svg>'
+const moveIcon = '<svg version="2.0"><use href="#dg-ed-move"/></svg>'
+const trashIcon = '<svg version="2.0"><use href="#dg-ed-trash"/></svg>'
+
 Component.editBar = (path: string, opts: EditBarOpts) => {
   if (!opts.editMode) return ''
   const id = randomid()
@@ -212,11 +217,10 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
     `.trim()
   } else {
     return `
-<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" draggable="true" ondragstart="window.dgEditing.drag(event)" ondragover="window.dgEditing.over(event)" ondragend="window.dgEditing.drop(event)">
+<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" draggable="true" onclick="window.dgEditing.select(event)" ondragstart="window.dgEditing.drag(event)" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  <button onclick="window.dgEditing.edit(event)" aria-describedby="${id}">Edit</button>
-  <button onclick="window.dgEditing.move(event)" aria-describedby="${id}">Move</button>
-  <button onclick="window.dgEditing.del(event)" aria-describedby="${id}">Trash</button>
+  <button onclick="window.dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>
+  <button onclick="window.dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
 </div>
     `.trim()
   }
@@ -225,8 +229,8 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
 Component.newBar = (path: string, opts: EditBarOpts) => {
   if (!opts.editMode || opts.inheritedFrom) return ''
   return `
-<div role="button" onclick="window.dgEditing.create(event)" class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}">
-  ${htmlEncode(opts.label)}
+<div role="button" onclick="window.dgEditing.create(event)" class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
+  ${addIcon}<span>${htmlEncode(opts.label)}</span>
 </div>
   `.trim()
 }
