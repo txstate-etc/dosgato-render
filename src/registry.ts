@@ -25,10 +25,12 @@ export interface RegistryCSSBlock extends CSSBlock {
     format: string
   }[]
   map?: string
+  size: number
 }
 
 export interface RegistryJSBlock extends JSBlock {
   map?: string
+  size: number
 }
 
 export interface RegistryFile extends FileDeclaration {
@@ -91,12 +93,13 @@ export class TemplateRegistry {
       const existing = this.jsblocks.get(key)
       versionWarning(existing, block, 'Javascript', key)
       if (!existing || versionGreater(block.version, existing.version)) {
-        this.jsblocks.set(key, block)
         const finalBlock = block as RegistryJSBlock
+        this.jsblocks.set(key, finalBlock)
         const js = finalBlock.js ?? readFileSync(finalBlock.path!, 'utf8')
         promises.push(transform(js, { minify: true, sourcemap: true, sourcefile: `${key}.js`, legalComments: 'none' }).then(minified => {
-          finalBlock.js = minified.code ?? ''
-          finalBlock.map = minified.map ?? ''
+          finalBlock.js = minified.code
+          finalBlock.map = minified.map
+          finalBlock.size = new Blob([finalBlock.js]).size
         }))
       }
     }
@@ -119,8 +122,8 @@ export class TemplateRegistry {
       const existing = this.cssblocks.get(key)
       versionWarning(existing, block, 'CSS', key)
       if (!existing || versionGreater(block.version, existing.version)) {
-        this.cssblocks.set(key, block)
         const finalBlock = block as RegistryCSSBlock
+        this.cssblocks.set(key, finalBlock)
         let css = finalBlock.css ?? readFileSync(finalBlock.path!, 'utf8')
 
         const fonts = new Map<string, { href: string, format: string }>()
@@ -144,6 +147,7 @@ export class TemplateRegistry {
         promises.push(transform(css, { loader: 'css', minify: true, sourcemap: true, legalComments: 'none', sourcefile: `${key}.css` }).then(async minified => {
           finalBlock.css = minified.code
           finalBlock.map = minified.map
+          finalBlock.size = new Blob([finalBlock.css]).size
         }))
       }
     }

@@ -1,4 +1,5 @@
 import { type APIClient, ResourceProvider } from '@dosgato/templating'
+import { Blob } from 'buffer'
 import { FastifyRequest } from 'fastify'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { fileTypeFromFile } from 'file-type'
@@ -148,10 +149,12 @@ export class RenderingServer extends Server {
       void res.header('Cache-Control', 'max-age=31536000, immutable')
       if ('css' in block && extension === 'css') {
         void res.type('text/css')
+        void res.header('Content-Length', block.size)
         if (block.map?.length) void res.header('SourceMap', `/.resources/${req.params.version}/${blockName}.css.map`)
         return block.css
       } else if ('js' in block && extension === 'js') {
         void res.type('text/javascript')
+        void res.header('Content-Length', block.size)
         if (block.map?.length) void res.header('SourceMap', `/.resources/${req.params.version}/${blockName}.js.map`)
         return block.js
       } else if (extension === 'css.map' && 'map' in block) {
@@ -173,8 +176,11 @@ export class RenderingServer extends Server {
      * Route for serving JS that supports the editing UI
      */
     const editingJs = readFileSync(new URL('./static/editing.js', import.meta.url))
-    this.app.get('/.editing/edit.js', async (req, res) => {
+    const editingJsSize = new Blob([editingJs]).size
+    this.app.get('/.editing/:version/edit.js', async (req, res) => {
       void res.header('Content-Type', 'application/javascript')
+      void res.header('Content-Length', editingJsSize)
+      void res.header('Cache-Control', 'max-age=31536000, immutable')
       return editingJs
     })
 
@@ -182,8 +188,11 @@ export class RenderingServer extends Server {
      * Route for serving CSS that supports the editing UI
      */
     const editingCss = readFileSync(new URL('./static/editing.css', import.meta.url))
-    this.app.get('/.editing/edit.css', async (req, res) => {
+    const editingCssSize = new Blob([editingCss]).size
+    this.app.get('/.editing/:version/edit.css', async (req, res) => {
       void res.header('Content-Type', 'text/css')
+      void res.header('Content-Length', editingCssSize)
+      void res.header('Cache-Control', 'max-age=31536000, immutable')
       return editingCss
     })
 

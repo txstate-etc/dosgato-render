@@ -11,14 +11,14 @@
     "prepublishOnly": "npm run build",
     "build": "rm -rf dist && tsc && cp -R src/static dist/static",
     "watch": "nodemon --exec 'npm start' --ext ts,js,css",
-    "start": "node --loader ts-node/esm test/testserver.ts"
+    "start": "node --no-warnings --enable-source-maps --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
     "@dosgato/templating": ">=0.0.61",
     "cheerio": "^1.0.0-rc.12",
     "dataloader-factory": "^4.4.1",
     "esbuild": "^0.15.6",
-    "fastify-txstate": "^3.0.6",
+    "fastify-txstate": "^3.0.8",
     "file-type": "^18.0.0",
     "jose": "^4.8.1",
     "mime-types": "^2.1.34",
