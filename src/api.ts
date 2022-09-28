@@ -91,6 +91,8 @@ ancestorsByIdLoader.addIdLoader(ancestorsByPathLoader)
 const ROOTPAGE_QUERY = `
 query getRootPage ($ids: [ID!], $paths: [String!], $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { ids: $ids, paths: $paths }) {
+    id
+    path
     rootpage {
       ${PAGE_INFO}
     }
