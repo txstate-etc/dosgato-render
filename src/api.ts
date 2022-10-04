@@ -13,6 +13,8 @@ const PAGE_INFO = `
 id
 linkId
 path
+createdAt
+modifiedAt
 data (schemaversion: $schemaversion, published: $published)
 site { id name launched url { path, prefix } }
 `
@@ -21,6 +23,8 @@ const PAGE_INFO_VERSION = `
 id
 linkId
 path
+createdAt
+modifiedAt
 data (schemaversion: $schemaversion, published: $published, version: $version)
 site { id name launched url { path, prefix } }
 `
