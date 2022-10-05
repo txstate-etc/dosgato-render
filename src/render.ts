@@ -1,4 +1,4 @@
-import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent } from '@dosgato/templating'
+import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent, NewBarOpts } from '@dosgato/templating'
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { ParsedUrlQuery } from 'querystring'
 import { templateRegistry } from './registry.js'
@@ -217,20 +217,20 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
     `.trim()
   } else {
     return `
-<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" draggable="true" onclick="window.dgEditing.select(event)" ondragstart="window.dgEditing.drag(event)" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
+<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-droppable="${opts.disableDrop ? 'false' : 'true'}" draggable="true" onclick="window.dgEditing.select(event)" ondragstart="window.dgEditing.drag(event)" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  <button onclick="window.dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>
-  <button onclick="window.dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
+  ${opts.hideEdit ? '' : `<button onclick="window.dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>`}
+  <button ${opts.disableDelete ? 'disabled ' : ''}onclick="window.dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
 </div>
     `.trim()
   }
 }
 
-Component.newBar = (path: string, opts: EditBarOpts) => {
-  if (!opts.editMode || opts.inheritedFrom) return ''
+Component.newBar = (path: string, opts: NewBarOpts) => {
+  if (!opts.editMode) return ''
   return `
-<div role="button" onclick="window.dgEditing.create(event)" class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
+<button onclick="window.dgEditing.create(event)" ${opts.disabled ? 'disabled ' : ''}class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
   ${addIcon}<span>${htmlEncode(opts.label)}</span>
-</div>
+</button>
   `.trim()
 }

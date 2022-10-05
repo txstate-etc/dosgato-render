@@ -1,6 +1,7 @@
 window.dgEditing = {
+  target (el) { return el.closest('[data-path]') },
   path (el) {
-    return el.closest('[data-path]').getAttribute('data-path')
+    return this.barPath(this.target(el))
   },
   send (action, e) {
     const path = this.path(e.target)
@@ -9,7 +10,7 @@ window.dgEditing = {
   select (e) {
     const bars = document.querySelectorAll('[data-path].selected')
     for (const bar of bars) bar.classList.remove('selected')
-    e.target.closest('[data-path]').classList.add('selected')
+    this.target(e.target).classList.add('selected')
     this.send('select', e)
   },
   edit (e) {
@@ -27,32 +28,42 @@ window.dgEditing = {
   barPath (bar) {
     return bar.getAttribute('data-path')
   },
+  droppable (bar) {
+    const path = this.barPath(bar)
+    return this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-droppable') !== 'false'
+  },
   enter (e) {
-    const path = this.path(e.target)
-    if (this.validdrops.has(path)) e.target.closest('[data-path]').classList.add('dg-edit-over')
+    const target = this.target(e.target)
+    target.dragEnterCount = (target.dragEnterCount ?? 0) + 1
+    if (this.droppable(target)) target.classList.add('dg-edit-over')
   },
   leave (e) {
-    e.target.closest('[data-path]').classList.remove('dg-edit-over')
+    const target = this.target(e.target)
+    target.dragEnterCount = Math.max(0, (target.dragEnterCount ?? 0) - 1)
+    if (target.dragEnterCount === 0) target.classList.remove('dg-edit-over')
   },
   drag (e) {
     this.validdrops = new Set()
-    const path = this.path(e.target)
+    const target = this.target(e.target)
+    const path = this.barPath(target)
     this.dragging = path
     const bars = Array.from(document.querySelectorAll('.dg-edit-bar, .dg-new-bar'))
     const allpaths = bars.map(this.barPath)
     window.top.postMessage({ action: 'drag', path, allpaths }, '*')
+    for (const bar of bars) bar.dragEnterCount = 0
   },
   drop (e) {
     const path = this.path(e.target)
-    e.target.closest('[data-path]').classList.remove('dg-edit-over')
-    if (this.validdrops.has(path)) {
+    const target = this.target(e.target)
+    target.classList.remove('dg-edit-over')
+    if (this.droppable(target)) {
       e.preventDefault()
       window.top.postMessage({ action: 'drop', from: this.dragging, to: path }, '*')
     }
   },
   over (e) {
-    const path = this.path(e.target)
-    if (this.validdrops.has(path)) {
+    const target = this.target(e.target)
+    if (this.droppable(target)) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
     }

@@ -28,6 +28,6 @@ export class PanelTemplate extends Component<PanelData> {
   }
 
   render () {
-    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderComponents('content')}${this.newBar('content')}</div></div>`
+    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderArea('content')}</div></div>`
   }
 }
