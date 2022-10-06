@@ -107,17 +107,27 @@ interface PageWithRoot {
   path: string
   rootpage: PageRecord<PageData>
 }
+
+function processPageRecord <T extends Omit<PageRecord<PageData>, 'data'>> (page: T): T {
+  return {
+    ...page,
+    createdAt: new Date(page.createdAt),
+    modifiedAt: new Date(page.modifiedAt),
+    publishedAt: page.publishedAt != null ? new Date(page.publishedAt) : undefined
+  }
+}
+
 const rootPageByIdLoader = new PrimaryKeyLoader({
   fetch: async (ids: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageWithRoot[] }>(ROOTPAGE_QUERY, { ids, schemaversion, published: api.published })
-    return pages
+    return pages.map(pwr => ({ ...pwr, rootpage: processPageRecord(pwr.rootpage) }))
   },
   extractId: (pageWithRoot) => pageWithRoot.id
 })
 const rootPageByPathLoader = new PrimaryKeyLoader({
   fetch: async (paths: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageWithRoot[] }>(ROOTPAGE_QUERY, { paths, schemaversion, published: api.published })
-    return pages
+    return pages.map(pwr => ({ ...pwr, rootpage: processPageRecord(pwr.rootpage) }))
   },
   extractId: (pageWithRoot) => pageWithRoot.path,
   idLoader: rootPageByIdLoader
@@ -143,7 +153,7 @@ query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetr
 const pageByIdLoader = new PrimaryKeyLoader({
   fetch: async (ids: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { ids, schemaversion, published: api.published })
-    return pages
+    return pages.map(processPageRecord)
   },
   extractId: p => p.id
 })
@@ -159,12 +169,12 @@ const pageByPathLoader = new PrimaryKeyLoader({
       (async () => {
         if (!samesitepaths.length) return []
         const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published, pagetreeIds: [api.pagetreeId] })
-        return pages
+        return pages.map(processPageRecord)
       })(),
       (async () => {
         if (!othersitepaths.length) return []
         const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { paths, schemaversion, published: api.published })
-        return pages
+        return pages.map(processPageRecord)
       })()
     ])
     return samesitepages.concat(othersitepages)
@@ -179,7 +189,7 @@ const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omi
       for (const link of links) link.context = { pagetreeId: api.pagetreeId }
     }
     const { pages } = await api.query(PAGE_QUERY_NO_DATA, { links })
-    return pages
+    return pages.map(processPageRecord)
   },
   scoreMatch: (link, page) => {
     if (link.siteId !== page.site.id) return 0
@@ -194,7 +204,7 @@ const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecord>({
       for (const link of links) link.context = { pagetreeId: api.pagetreeId }
     }
     const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links, published: api.published })
-    return pages
+    return pages.map(processPageRecord)
   },
   scoreMatch: (link, page) => {
     if (link.siteId !== page.site.id) return 0
