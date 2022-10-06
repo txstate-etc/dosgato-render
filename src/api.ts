@@ -15,6 +15,7 @@ linkId
 path
 createdAt
 modifiedAt
+publishedAt
 data (schemaversion: $schemaversion, published: $published)
 site { id name launched url { path, prefix } }
 `
@@ -25,6 +26,7 @@ linkId
 path
 createdAt
 modifiedAt
+publishedAt
 data (schemaversion: $schemaversion, published: $published, version: $version)
 site { id name launched url { path, prefix } }
 `
