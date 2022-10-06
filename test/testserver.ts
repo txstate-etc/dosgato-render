@@ -1,6 +1,7 @@
 import { getFilePath, RenderingServer } from '../src/index.js'
 import { templateRegistry } from '../src/registry.js'
 import { resourceversion } from '../src/version.js'
+import { HorizontalRuleTemplate } from './components/horizontalrule.js'
 import { LinkTemplate } from './components/link.js'
 import { PanelTemplate } from './components/panel.js'
 import { QuoteTemplate } from './components/quote.js'
@@ -22,6 +23,7 @@ await server.start({
     PanelTemplate,
     QuoteTemplate,
     RichTextTemplate,
+    HorizontalRuleTemplate,
     TextImageTemplate
   ]
 })

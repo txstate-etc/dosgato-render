@@ -30,7 +30,9 @@ window.dgEditing = {
   },
   droppable (bar) {
     const path = this.barPath(bar)
-    return this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-droppable') !== 'false'
+    const parentPath = bar.classList.contains('dg-new-bar') ? path : path.split('.').slice(0, -2).join('.')
+    const draggingParentPath = this.dragging.split('.').slice(0, -2).join('.')
+    return (path !== this.dragging && parentPath === draggingParentPath) || (this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-droppable') !== 'false')
   },
   enter (e) {
     const target = this.target(e.target)
