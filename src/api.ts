@@ -337,12 +337,12 @@ export class RenderingAPIClient implements APIClient {
 
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date) {
     const { pages } = await this.#query<{ pages: (PageRecord & { site: { url: { prefix: string } } })[] }>(anonToken, LAUNCHED_PAGE_QUERY, { launchUrl: `http://${hostname}${path}`, schemaversion, published: true })
-    return pages[0]
+    return processPageRecord(pages[0])
   }
 
   async getPreviewPage (pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number) {
     const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string }})[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version })
-    return pages[0]
+    return processPageRecord(pages[0])
   }
 
   async getAssetByLink (link: AssetLink, dlf: DataLoaderFactory) {
