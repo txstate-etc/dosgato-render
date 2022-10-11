@@ -54,7 +54,13 @@ window.dgEditing = {
     window.top.postMessage({ action: 'drag', path, allpaths }, '*')
     for (const bar of bars) bar.dragEnterCount = 0
   },
+  dragend (e) {
+    this.dragging = undefined
+    const bars = Array.from(document.querySelectorAll('.dg-edit-bar, .dg-new-bar'))
+    for (const bar of bars) bar.classList.remove('dg-no-drop', 'dg-dragging')
+  },
   drop (e) {
+    console.log(e)
     const path = this.path(e.target)
     const target = this.target(e.target)
     target.classList.remove('dg-edit-over')
@@ -71,8 +77,19 @@ window.dgEditing = {
     }
   },
   message (e) {
-    if ('validdrops' in e.data) {
+    if ('validdrops' in e.data && this.dragging) {
       this.validdrops = e.data.validdrops
+      const bars = Array.from(document.querySelectorAll('.dg-edit-bar, .dg-new-bar'))
+      const droppable = {}
+      const barByPath = bars.reduce((barByPath, bar) => ({ ...barByPath, [this.barPath(bar)]: bar }), {})
+      const paths = Object.keys(barByPath)
+      for (const path of paths) {
+        droppable[path] = this.droppable(barByPath[path])
+      }
+      for (const path of paths) {
+        if (path === this.dragging) barByPath[path].classList.add('dg-dragging')
+        else if (!droppable[path]) barByPath[path].classList.add('dg-no-drop')
+      }
     }
   }
 }

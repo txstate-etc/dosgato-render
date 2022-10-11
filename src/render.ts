@@ -211,15 +211,15 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
     return `
 <div class="dg-edit-bar dg-edit-bar-inherited ${opts.extraClass ?? ''}">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  <button role="link" onclick="window.dgEditing.jump('${opts.inheritedFrom}')>Jump to Original</button>
+  <button role="link" onclick="dgEditing.jump('${opts.inheritedFrom}')>Jump to Original</button>
 </div>
     `.trim()
   } else {
     return `
-<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'false' : 'true'}" draggable="true" onclick="window.dgEditing.select(event)" ondragstart="window.dgEditing.drag(event)" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
+<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'false' : 'true'}" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  ${opts.hideEdit ? '' : `<button onclick="window.dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>`}
-  <button ${opts.disableDelete ? 'disabled ' : ''}onclick="window.dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
+  ${opts.hideEdit ? '' : `<button onclick="dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>`}
+  <button ${opts.disableDelete ? 'disabled ' : ''}onclick="dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
 </div>
     `.trim()
   }
@@ -228,7 +228,7 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
 Component.newBar = (path: string, opts: NewBarOpts) => {
   if (!opts.editMode) return ''
   return `
-<button onclick="window.dgEditing.create(event)" ${opts.disabled ? 'disabled ' : ''}class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="window.dgEditing.enter(event)" ondragleave="window.dgEditing.leave(event)" ondragover="window.dgEditing.over(event)" ondrop="window.dgEditing.drop(event)">
+<button onclick="dgEditing.create(event)" ${opts.disabled ? 'disabled ' : ''}class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)">
   ${addIcon}<span>${htmlEncode(opts.label)}</span>
 </button>
   `.trim()

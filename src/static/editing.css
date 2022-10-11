@@ -50,3 +50,11 @@
   border-color: #6a3a6e;
   background-color: rgba(173, 172, 172, 0.8);
 }
+
+.dg-no-drop {
+  opacity: 0.4;
+}
+
+.dg-dragging {
+  border-color: #c13fcd;
+}
