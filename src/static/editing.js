@@ -30,8 +30,8 @@ window.dgEditing = {
   },
   droppable (bar) {
     const path = this.barPath(bar)
-    const parentPath = bar.classList.contains('dg-new-bar') ? path : path.split('.').slice(0, -2).join('.')
-    const draggingParentPath = this.dragging.split('.').slice(0, -2).join('.')
+    const parentPath = bar.classList.contains('dg-new-bar') ? path : path.split('.').slice(0, -1).join('.')
+    const draggingParentPath = this.dragging.split('.').slice(0, -1).join('.')
     return (path !== this.dragging && parentPath === draggingParentPath) || (this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-maxreached') !== 'false')
   },
   enter (e) {

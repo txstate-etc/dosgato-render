@@ -341,7 +341,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async getPreviewPage (pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number) {
-    const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string }})[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version })
+    const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string } })[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version })
     return processPageRecord(pages[0])
   }
 
