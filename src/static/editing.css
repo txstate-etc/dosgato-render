@@ -1,7 +1,9 @@
 .dg-edit-bar {
+  cursor: pointer;
   border: 2px solid #BC8CBF;
   justify-content: flex-end;
   padding: 0.2rem 1rem;
+  position: relative;
 }
 .dg-edit-bar.selected {
   background-color: #BC8CBF;
@@ -16,6 +18,9 @@
   padding: 0.6rem 1rem;
   width: 100%;
 }
+.dg-new-bar[disabled] {
+  cursor: default;
+}
 
 .dg-edit-bar, .dg-new-bar {
   display: flex;
@@ -26,10 +31,17 @@
   background-color: rgba(235,232,232,0.59);
 }
 
-.dg-edit-bar button {
+.dg-edit-bar button, .dg-edit-bar-move {
+  border: 1px solid #999999;
+  border-radius: 0.2em;
   padding: 0.1em 0.4em;
   cursor: pointer;
   margin-left: 0.1em;
+  font-size: 1em;
+}
+
+.dg-edit-bar-move {
+  border-color: transparent;
 }
 
 .dg-new-bar svg, .dg-edit-bar svg {
@@ -51,8 +63,16 @@
   background-color: rgba(173, 172, 172, 0.8);
 }
 
-.dg-no-drop {
+.dg-no-drop:not([disabled]) {
   opacity: 0.4;
+}
+
+.dg-new-bar.dg-yes-drop span:after {
+  content: ' (drop to place inside)'
+}
+
+.dg-edit-bar.dg-yes-drop .dg-edit-bar-label:after {
+  content: ' (drop to place above)'
 }
 
 .dg-dragging {

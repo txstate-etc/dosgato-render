@@ -32,6 +32,7 @@ window.dgEditing = {
     const path = this.barPath(bar)
     const parentPath = bar.classList.contains('dg-new-bar') ? path : path.split('.').slice(0, -1).join('.')
     const draggingParentPath = this.dragging.split('.').slice(0, -1).join('.')
+    if (path === draggingParentPath) return false // no dragging onto your own new bar
     return (path !== this.dragging && parentPath === draggingParentPath) || (this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-maxreached') !== 'false')
   },
   enter (e) {
@@ -57,7 +58,7 @@ window.dgEditing = {
   dragend (e) {
     this.dragging = undefined
     const bars = Array.from(document.querySelectorAll('.dg-edit-bar, .dg-new-bar'))
-    for (const bar of bars) bar.classList.remove('dg-no-drop', 'dg-dragging')
+    for (const bar of bars) bar.classList.remove('dg-yes-drop', 'dg-no-drop', 'dg-dragging')
   },
   drop (e) {
     console.log(e)
@@ -89,6 +90,7 @@ window.dgEditing = {
       for (const path of paths) {
         if (path === this.dragging) barByPath[path].classList.add('dg-dragging')
         else if (!droppable[path]) barByPath[path].classList.add('dg-no-drop')
+        else barByPath[path].classList.add('dg-yes-drop')
       }
     }
   }
@@ -107,6 +109,10 @@ document.body.innerHTML += `
   <symbol id="dg-ed-edit" viewbox="0 0 256 256">
     <title>Edit</title>
     <path fill="currentColor" d="m222.6 78.1l-44.7-44.7a14 14 0 0 0-19.8 0l-120 120a14.3 14.3 0 0 0-4.1 9.9V208a14 14 0 0 0 14 14h44.7a14.3 14.3 0 0 0 9.9-4.1l120-120a14.1 14.1 0 0 0 0-19.8ZM48.5 160L136 72.5L155.5 92L68 179.5ZM46 208v-33.5L81.5 210H48a2 2 0 0 1-2-2Zm50-.5L76.5 188l87.5-87.5l19.5 19.5ZM214.1 89.4L192 111.5L144.5 64l22.1-22.1a1.9 1.9 0 0 1 2.8 0l44.7 44.7a1.9 1.9 0 0 1 0 2.8Z"/>
+  </symbol>
+  <symbol id="dg-ed-move" viewbox="0 0 256 256">
+    <title>Move</title>
+    <path fill="currentColor" d="M160.5 199.5a5.9 5.9 0 0 1 0 8.5l-28.3 28.2a5.8 5.8 0 0 1-8.4 0L95.5 208a6 6 0 0 1 8.5-8.5l18 18V160a6 6 0 0 1 12 0v57.5l18-18a5.9 5.9 0 0 1 8.5 0ZM104 56.5l18-18V96a6 6 0 0 0 12 0V38.5l18 18a6 6 0 0 0 4.3 1.8a5.8 5.8 0 0 0 4.2-1.8a5.9 5.9 0 0 0 0-8.5l-28.3-28.2a5.8 5.8 0 0 0-8.4 0L95.5 48a6 6 0 0 0 8.5 8.5ZM38.5 134H96a6 6 0 0 0 0-12H38.5l18-18a6 6 0 0 0-8.5-8.5l-28.2 28.3a5.8 5.8 0 0 0 0 8.4L48 160.5a6 6 0 0 0 4.3 1.8a5.8 5.8 0 0 0 4.2-1.8a5.9 5.9 0 0 0 0-8.5Zm197.7-10.2L208 95.5a6 6 0 0 0-8.5 8.5l18 18H160a6 6 0 0 0 0 12h57.5l-18 18a5.9 5.9 0 0 0 0 8.5a5.8 5.8 0 0 0 4.2 1.8a6 6 0 0 0 4.3-1.8l28.2-28.3a5.8 5.8 0 0 0 0-8.4Z"/>
   </symbol>
   <symbol id="dg-ed-trash" viewbox="0 0 256 256">
     <title>Delete</title>

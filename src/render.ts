@@ -202,6 +202,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
 
 const addIcon = '<svg version="2.0"><use href="#dg-ed-add"/></svg>'
 const editIcon = '<svg version="2.0"><use href="#dg-ed-edit"/></svg>'
+const moveIcon = '<svg version="2.0"><use href="#dg-ed-move"/></svg>'
 const trashIcon = '<svg version="2.0"><use href="#dg-ed-trash"/></svg>'
 
 Component.editBar = (path: string, opts: EditBarOpts) => {
@@ -218,6 +219,7 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
     return `
 <div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'false' : 'true'}" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
+  <span class="dg-edit-bar-move">${moveIcon}</span>
   ${opts.hideEdit ? '' : `<button onclick="dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>`}
   <button ${opts.disableDelete ? 'disabled ' : ''}onclick="dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
 </div>
