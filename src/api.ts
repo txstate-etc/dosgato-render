@@ -290,8 +290,8 @@ export class RenderingAPIClient implements APIClient {
       // absolute launched url or fail if not launched
       ret = resolvePath(page.site.url?.prefix, page.path)
     } else if (opts?.absolute && this.context === 'preview') {
-      // absolute preview url
-      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, page.path)
+      // absolute published preview url
+      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/${this.published ? 'public' : 'latest'}`, page.path)
     } else if (opts?.absolute && this.context === 'edit') {
       // absolute edit url
       ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, page.path)
