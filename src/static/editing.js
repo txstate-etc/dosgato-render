@@ -61,7 +61,6 @@ window.dgEditing = {
     for (const bar of bars) bar.classList.remove('dg-yes-drop', 'dg-no-drop', 'dg-dragging')
   },
   drop (e) {
-    console.log(e)
     const path = this.path(e.target)
     const target = this.target(e.target)
     target.classList.remove('dg-edit-over')
