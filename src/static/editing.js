@@ -92,12 +92,18 @@ window.dgEditing = {
         else if (!droppable[path]) barByPath[path].classList.add('dg-no-drop')
         else barByPath[path].classList.add('dg-yes-drop')
       }
+    } else if ('scrollTop' in e.data) {
+      window.scrollTo({ top: e.data.scrollTop })
     }
   }
 }
 
 window.addEventListener('message', e => {
   window.dgEditing.message(e)
+})
+
+window.addEventListener('scroll', () => {
+  window.top.postMessage({ action: 'scroll', scrollTop: document.scrollingElement.scrollTop }, '*')
 })
 
 document.body.innerHTML += `
