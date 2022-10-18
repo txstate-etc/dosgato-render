@@ -145,20 +145,23 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       c.reqHeaders = req.headers
       c.reqQuery = req.query as ParsedUrlQuery
       c.autoLabel = templateByKey[c.data.templateKey]?.name
-      const registered: { area: string, components: ComponentData[], top: boolean, fromPageId: string }[] = []
-      c.registerInherited = (area, components, fromPageId, top) => {
-        registered.push({ area, components, top: !!top, fromPageId })
+      const registered: { area: string, components: ComponentData[], mode: 'top' | 'bottom' | 'replace', fromPageId: string | string[] }[] = []
+      c.registerInherited = (area, components, fromPageId, mode = 'top') => {
+        registered.push({ area, components, mode, fromPageId })
       }
       c.fetched = await c.fetch()
       const extraComponents: Component[] = []
       for (const entry of registered) {
         if (!c.areas.has(entry.area)) c.areas.set(entry.area, [])
-        for (const cData of entry.components) {
+        const fromPageId = Array.isArray(entry.fromPageId) ? entry.fromPageId : Array(entry.components.length).fill(entry.fromPageId)
+        for (let i = 0; i < entry.components.length; i++) {
+          const cData = entry.components[i]
           const hydrated = hydrateComponent(cData, c, 'inherited', editMode)
           if (hydrated) {
-            hydrated.inheritedFrom = entry.fromPageId
+            hydrated.inheritedFrom = fromPageId[i]
             extraComponents.push(hydrated)
-            if (entry.top) c.areas.get(entry.area)!.unshift(hydrated)
+            if (entry.mode === 'replace') c.areas.set(entry.area, [])
+            if (entry.mode === 'top') c.areas.get(entry.area)!.unshift(hydrated)
             else c.areas.get(entry.area)!.push(hydrated)
           }
         }
