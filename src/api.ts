@@ -1,13 +1,15 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageLink, PageLinkWithContext, PageRecord, PageRecordOptionalData, replaceLinksInText } from '@dosgato/templating'
+import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, replaceLinksInText, SiteInfo } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
-import { Cache, ensureString, isBlank, keyby, pick, stringify } from 'txstate-utils'
+import { Cache, ensureString, isBlank, keyby, pick, stringify, toArray } from 'txstate-utils'
 import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
 import cheerio from 'cheerio'
 import { parseDocument } from 'htmlparser2'
 import { HttpError } from 'fastify-txstate'
+
+const SITE_INFO = 'site { id name launched url { path, prefix } }'
 
 const PAGE_INFO = `
 id
@@ -17,7 +19,7 @@ createdAt
 modifiedAt
 publishedAt
 data (schemaversion: $schemaversion, published: $published)
-site { id name launched url { path, prefix } }
+${SITE_INFO}
 `
 
 const PAGE_INFO_VERSION = `
@@ -28,7 +30,7 @@ createdAt
 modifiedAt
 publishedAt
 data (schemaversion: $schemaversion, published: $published, version: $version)
-site { id name launched url { path, prefix } }
+${SITE_INFO}
 `
 
 const LAUNCHED_PAGE_QUERY = `
@@ -139,14 +141,14 @@ rootPageByIdLoader.addIdLoader(rootPageByPathLoader)
 const PAGE_QUERY = `
 query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetreeIds: [ID!], $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
-    site { id name launched url { path, prefix } }
+    ${SITE_INFO}
     ${PAGE_INFO}
   }
 }`
 const PAGE_QUERY_NO_DATA = `
 query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetreeIds: [ID!]) {
   pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
-    site { id name launched url { path, prefix } }
+    ${SITE_INFO}
     id
     linkId
     path
@@ -270,6 +272,35 @@ export class RenderingAPIClient implements APIClient {
     return page
   }
 
+  async getNavigation ({ beneath, depth, extra, absolute }: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean }) {
+    if (beneath && beneath !== '/' && depth != null) depth += beneath.split('/').length - 1
+    const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
+      query getNavigation ($pagetreeId: ID!, $beneath: [String!], $depth: Int, $published: Boolean, $dataPaths: [String!]) {
+        pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published }) {
+          id
+          name
+          title
+          path
+          ${SITE_INFO}
+          parent { id }
+          extra: dataByPath (paths: $paths, published: $published)
+        }
+      }
+    `, { pagetreeId: this.pagetreeId, depth, dataPaths: extra, published: this.published, beneath: toArray(beneath) })
+    const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
+      ...p,
+      href: this.getHref(p, { absolute }),
+      children: []
+    }))
+    const pagesById = keyby(pagesForNavigation, 'id')
+    const roots: PageForNavigation[] = []
+    for (const page of pagesForNavigation) {
+      if (!page.parent || !pagesById[page.parent.id]) roots.push(page)
+      else pagesById[page.parent.id].children.push(page)
+    }
+    return roots
+  }
+
   async resolveLink (lnk: string | LinkDefinition, opts?: { absolute?: boolean, extension?: string }) {
     const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return 'brokenlink'
@@ -284,7 +315,7 @@ export class RenderingAPIClient implements APIClient {
     return 'brokenlink'
   }
 
-  getHref (page: PageRecordOptionalData, opts?: { absolute?: boolean, extension?: string }) {
+  getHref (page: { path: string, site: SiteInfo }, opts?: { absolute?: boolean, extension?: string }) {
     let ret = ''
     if (opts?.absolute || page.site.name !== this.sitename) {
       // absolute launched url or fail if not launched
