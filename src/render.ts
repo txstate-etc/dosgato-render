@@ -69,7 +69,7 @@ function renderVariation (extension: string, component: Component) {
 
 // recursive helper function for transformation of plain-object componentData
 // into a hydrated instance of the Component class (or a descendent class like Page)
-function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean) {
+function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, recursiveInherit?: boolean) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
   if (!ComponentType) {
@@ -79,10 +79,13 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 
   // hydrate the page data into full objects
   const component = new ComponentType(componentData, path, parent, editMode)
+  component.inheritedFrom = inheritedFrom
+  if (recursiveInherit) component.editBar = () => ''
+  if (inheritedFrom) component.newBar = () => ''
   for (const key of Object.keys(componentData.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < componentData.areas![key].length; i++) {
-      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode)
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, true)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
@@ -105,7 +108,7 @@ function hydratePage (pageData: PageRecord, editMode: boolean) {
   for (const key of Object.keys(pageData.data.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < pageData.data.areas![key].length; i++) {
-      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode)
+      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined)
       if (child) areaComponents.push(child)
     }
     page.areas.set(key, areaComponents)
@@ -156,13 +159,19 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
         const fromPageId = Array.isArray(entry.fromPageId) ? entry.fromPageId : Array(entry.components.length).fill(entry.fromPageId)
         for (let i = 0; i < entry.components.length; i++) {
           const cData = entry.components[i]
-          const hydrated = hydrateComponent(cData, c, 'inherited', editMode)
+          const hydrated = hydrateComponent(cData, c, 'inherited', editMode, fromPageId[i])
           if (hydrated) {
-            hydrated.api = api
-            hydrated.inheritedFrom = fromPageId[i]
-            extraComponents.push(hydrated)
+            const hydratedPlusSubComponents = collectComponents(hydrated)
+            for (const c of hydratedPlusSubComponents) {
+              c.api = api
+              c.reqHeaders = req.headers
+              c.reqQuery = req.query as ParsedUrlQuery
+              c.autoLabel = templateByKey[c.data.templateKey]?.name
+              c.registerInherited = () => {} // inherited components cannot inherit further components
+            }
+            extraComponents.push(...hydratedPlusSubComponents)
             if (entry.mode === 'replace') c.areas.set(entry.area, [])
-            if (entry.mode === 'top') c.areas.get(entry.area)!.unshift(hydrated)
+            if (entry.mode === 'top') c.areas.get(entry.area)!.splice(i, 0, hydrated)
             else c.areas.get(entry.area)!.push(hydrated)
           }
         }

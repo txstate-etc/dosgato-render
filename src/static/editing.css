@@ -14,6 +14,7 @@
 .dg-edit-bar.dg-edit-bar-inherited {
   cursor: default;
   background-color: blue;
+  color: white;
   border-color: darkblue;
 }
 
