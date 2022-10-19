@@ -158,6 +158,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
           const cData = entry.components[i]
           const hydrated = hydrateComponent(cData, c, 'inherited', editMode)
           if (hydrated) {
+            hydrated.api = api
             hydrated.inheritedFrom = fromPageId[i]
             extraComponents.push(hydrated)
             if (entry.mode === 'replace') c.areas.set(entry.area, [])
