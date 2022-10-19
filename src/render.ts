@@ -147,7 +147,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       c.autoLabel = templateByKey[c.data.templateKey]?.name
       const registered: { area: string, components: ComponentData[], mode: 'top' | 'bottom' | 'replace', fromPageId: string | string[] }[] = []
       c.registerInherited = (area, components, fromPageId, mode = 'top') => {
-        registered.push({ area, components, mode, fromPageId })
+        if (components?.length) registered.push({ area, components, mode, fromPageId })
       }
       c.fetched = await c.fetch()
       const extraComponents: Component[] = []
@@ -215,7 +215,7 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
     return `
 <div class="dg-edit-bar dg-edit-bar-inherited ${opts.extraClass ?? ''}">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  <button role="link" onclick="dgEditing.jump('${opts.inheritedFrom}')>Jump to Original</button>
+  <button role="link" onclick="dgEditing.jump('${opts.inheritedFrom}')">Jump to Original</button>
 </div>
     `.trim()
   } else {

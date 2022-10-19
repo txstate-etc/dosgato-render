@@ -11,6 +11,11 @@
 .dg-edit-bar-label {
   margin-right: auto;
 }
+.dg-edit-bar.dg-edit-bar-inherited {
+  cursor: default;
+  background-color: blue;
+  border-color: darkblue;
+}
 
 .dg-new-bar {
   cursor: pointer;

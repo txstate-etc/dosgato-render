@@ -8,10 +8,16 @@ window.dgEditing = {
     window.top.postMessage({ action, path }, '*')
   },
   select (e) {
+    e.stopPropagation()
     const bars = document.querySelectorAll('[data-path].selected')
     for (const bar of bars) bar.classList.remove('selected')
     this.target(e.target).classList.add('selected')
     this.send('select', e)
+  },
+  deselect (e) {
+    window.top.postMessage({ action: 'deselect' }, '*')
+    const bars = document.querySelectorAll('[data-path].selected')
+    for (const bar of bars) bar.classList.remove('selected')
   },
   edit (e) {
     this.send('edit', e)
@@ -24,6 +30,9 @@ window.dgEditing = {
   },
   del (e) {
     this.send('del', e)
+  },
+  jump (pageId) {
+    window.top.postMessage({ action: 'jump', pageId }, '*')
   },
   barPath (bar) {
     return bar.getAttribute('data-path')
@@ -93,6 +102,11 @@ window.dgEditing = {
       }
     } else if ('scrollTop' in e.data) {
       window.scrollTo({ top: e.data.scrollTop })
+      const bars = document.querySelectorAll('[data-path]')
+      for (const bar of bars) {
+        if (this.barPath(bar) === e.data.selectedPath) bar.classList.add('selected')
+        else bar.classList.remove('selected')
+      }
     }
   }
 }
@@ -104,6 +118,8 @@ window.addEventListener('message', e => {
 window.addEventListener('scroll', () => {
   window.top.postMessage({ action: 'scroll', scrollTop: document.scrollingElement.scrollTop }, '*')
 })
+
+window.addEventListener('click', () => window.dgEditing.deselect())
 
 document.body.innerHTML += `
 <svg style="display: none" version="2.0"><defs>

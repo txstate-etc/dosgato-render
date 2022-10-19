@@ -272,24 +272,25 @@ export class RenderingAPIClient implements APIClient {
     return page
   }
 
-  async getNavigation ({ beneath, depth, extra, absolute }: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean }) {
-    if (beneath && beneath !== '/' && depth != null) depth += beneath.split('/').length - 1
+  async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean }) {
+    opts ??= {}
+    if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
     const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
-      query getNavigation ($pagetreeId: ID!, $beneath: [String!], $depth: Int, $published: Boolean, $dataPaths: [String!]) {
-        pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published }) {
+      query getNavigation ($pagetreeId: ID!, $beneath: [String!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
+        pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath }) {
           id
           name
           title
           path
           ${SITE_INFO}
           parent { id }
-          extra: dataByPath (paths: $paths, published: $published)
+          extra: dataByPath (paths: $dataPaths, published: $published)
         }
       }
-    `, { pagetreeId: this.pagetreeId, depth, dataPaths: extra, published: this.published, beneath: toArray(beneath) })
+    `, { pagetreeId: this.pagetreeId, depth: opts.depth, dataPaths: opts.extra ?? [], published: this.published, beneath: toArray(opts.beneath) })
     const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
       ...p,
-      href: this.getHref(p, { absolute }),
+      href: this.getHref(p, { absolute: opts!.absolute }),
       children: []
     }))
     const pagesById = keyby(pagesForNavigation, 'id')
