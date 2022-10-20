@@ -67,7 +67,7 @@ window.dgEditing = {
   dragend (e) {
     this.dragging = undefined
     const bars = Array.from(document.querySelectorAll('.dg-edit-bar, .dg-new-bar'))
-    for (const bar of bars) bar.classList.remove('dg-yes-drop', 'dg-no-drop', 'dg-dragging')
+    for (const bar of bars) bar.classList.remove('dg-yes-drop', 'dg-no-drop', 'dg-dragging', 'dg-dragging-below')
   },
   drop (e) {
     const path = this.path(e.target)
@@ -95,7 +95,9 @@ window.dgEditing = {
       for (const path of paths) {
         droppable[path] = this.droppable(barByPath[path])
       }
+      const belowDragging = this.dragging.replace(/\.(\d+)$/, (_, idx) => `.${parseInt(idx) + 1}`)
       for (const path of paths) {
+        if (path === belowDragging) barByPath[path].classList.add('dg-dragging-below')
         if (path === this.dragging) barByPath[path].classList.add('dg-dragging')
         else if (!droppable[path]) barByPath[path].classList.add('dg-no-drop')
         else barByPath[path].classList.add('dg-yes-drop')
