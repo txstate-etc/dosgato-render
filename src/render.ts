@@ -85,7 +85,7 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   for (const key of Object.keys(componentData.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < componentData.areas![key].length; i++) {
-      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, true)
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, !!inheritedFrom)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
