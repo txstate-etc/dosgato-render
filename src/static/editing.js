@@ -106,8 +106,13 @@ window.dgEditing = {
       window.scrollTo({ top: e.data.scrollTop })
       const bars = document.querySelectorAll('[data-path]')
       for (const bar of bars) {
-        if (this.barPath(bar) === e.data.selectedPath) bar.classList.add('selected')
-        else bar.classList.remove('selected')
+        if (this.barPath(bar) === e.data.selectedPath) {
+          bar.classList.add('selected')
+          // we are already scrolling the window to its last known value, but it's
+          // possible the selected edit bar is inside a different scrollable element and we'd
+          // like to make sure it's on-screen after a reload for minimum interruption
+          bar.scrollIntoView({ block: 'nearest' })
+        } else bar.classList.remove('selected')
       }
     }
   }
