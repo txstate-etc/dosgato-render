@@ -3,9 +3,13 @@ window.dgEditing = {
   path (el) {
     return this.barPath(this.target(el))
   },
+  label (el) {
+    return el.querySelector('.dg-edit-bar-label')?.textContent
+  },
   send (action, e) {
     const path = this.path(e.target)
-    window.top.postMessage({ action, path }, '*')
+    const label = this.label(e.target)
+    window.top.postMessage({ action, path, label }, '*')
   },
   select (e) {
     e.stopPropagation()
