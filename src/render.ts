@@ -36,14 +36,15 @@ function executeSetContext (editMode: boolean) {
 }
 
 // recursive helper function for the final render phase of rendering (phase 3)
-function renderComponent (component: Component) {
+function renderComponent (component: Component, indexInArea?: number) {
   if (component.hadError) return component.editMode ? 'There was an error rendering a component here.' : ''
   component.renderedAreas = new Map<string, RenderedComponent[]>()
   for (const [key, list] of component.areas) {
-    const areaList = list.map(c => ({ output: renderComponent(c), component: c }))
+    const areaList = list.map((c, i) => ({ output: renderComponent(c, i), component: c }))
     component.renderedAreas.set(key, areaList)
   }
   try {
+    component.indexInArea = indexInArea!
     return component.render()
   } catch (e: any) {
     component.logError(e)
