@@ -4,19 +4,26 @@ window.dgEditing = {
     return this.barPath(this.target(el))
   },
   label (el) {
-    return el.querySelector('.dg-edit-bar-label')?.textContent
+    return this.barLabel(this.target(el))
   },
   send (action, e) {
     const path = this.path(e.target)
-    const label = this.label(e.target)
-    window.top.postMessage({ action, path, label }, '*')
+    window.top.postMessage({ action, path }, '*')
+  },
+  _select (barTarget) {
+    const bars = document.querySelectorAll('[data-path].selected')
+    for (const bar of bars) bar.classList.remove('selected')
+    barTarget.classList.add('selected')
+    window.top.postMessage({
+      action: 'select',
+      path: this.barPath(barTarget),
+      label: this.barLabel(barTarget),
+      maxreached: barTarget.getAttribute('data-maxreached') === 'true'
+    }, '*')
   },
   select (e) {
     e.stopPropagation()
-    const bars = document.querySelectorAll('[data-path].selected')
-    for (const bar of bars) bar.classList.remove('selected')
-    this.target(e.target).classList.add('selected')
-    this.send('select', e)
+    this._select(this.target(e.target))
   },
   deselect (e) {
     window.top.postMessage({ action: 'deselect' }, '*')
@@ -41,17 +48,28 @@ window.dgEditing = {
   barPath (bar) {
     return bar.getAttribute('data-path')
   },
+  barLabel (bar) {
+    return bar.querySelector('.dg-edit-bar-label')?.textContent ?? bar.querySelector('.dg-new-bar-label')?.textContent
+  },
   droppable (bar) {
     const path = this.barPath(bar)
-    const parentPath = bar.classList.contains('dg-new-bar') ? path : path.split('.').slice(0, -1).join('.')
-    const draggingParentPath = this.dragging.split('.').slice(0, -1).join('.')
-    if (path === draggingParentPath) return false // no dragging onto your own new bar
-    return (path !== this.dragging && parentPath === draggingParentPath) || (this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-maxreached') !== 'false')
+    return this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-maxreached') !== 'true'
   },
   enter (e) {
     const target = this.target(e.target)
     target.dragEnterCount = (target.dragEnterCount ?? 0) + 1
     if (this.droppable(target)) target.classList.add('dg-edit-over')
+  },
+  focus (e) {
+    this._select(this.target(e.target))
+  },
+  keydown (e) {
+    if (e.ctrlKey || e.altKey || e.metaKey || e.key === 'Insert') return
+    if (e.key === 'm') {
+      e.preventDefault()
+      e.stopPropagation()
+      this.send('menu', e)
+    }
   },
   leave (e) {
     const target = this.target(e.target)
@@ -108,16 +126,14 @@ window.dgEditing = {
       }
     } else if ('scrollTop' in e.data) {
       window.scrollTo({ top: e.data.scrollTop })
-      const bars = document.querySelectorAll('[data-path]')
-      for (const bar of bars) {
-        if (this.barPath(bar) === e.data.selectedPath) {
-          bar.classList.add('selected')
-          // we are already scrolling the window to its last known value, but it's
-          // possible the selected edit bar is inside a different scrollable element and we'd
-          // like to make sure it's on-screen after a reload for minimum interruption
-          bar.scrollIntoView({ block: 'nearest' })
-        } else bar.classList.remove('selected')
-      }
+      const bar = document.querySelector(`[data-path="${e.data.selectedPath}"]`)
+      if (!bar) return
+      this._select(bar)
+      bar.scrollIntoView({ block: 'nearest' })
+    } else if ('focus' in e.data) {
+      const bar = document.querySelector(`[data-path="${e.data.focus}"]`)
+      if (bar.matches('button')) bar.focus()
+      else bar.querySelector('button')?.focus()
     }
   }
 }

@@ -230,11 +230,11 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
     `.trim()
   } else {
     return `
-<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'false' : 'true'}" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)">
+<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'true' : 'false'}" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onkeydown="dgEditing.keydown(event)">
   <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
   <span class="dg-edit-bar-move">${moveIcon}</span>
-  ${opts.hideEdit ? '' : `<button onclick="dgEditing.edit(event)" aria-describedby="${id}">${editIcon}</button>`}
-  <button ${opts.disableDelete ? 'disabled ' : ''}onclick="dgEditing.del(event)" aria-describedby="${id}">${trashIcon}</button>
+  ${opts.hideEdit ? '' : `<button onclick="dgEditing.edit(event)" onfocus="dgEditing.focus(event)" aria-describedby="${id}">${editIcon}</button>`}
+  <button ${opts.disableDelete ? 'disabled ' : ''}onclick="dgEditing.del(event)" onfocus="dgEditing.focus(event)" aria-describedby="${id}">${trashIcon}</button>
 </div>
     `.trim()
   }
@@ -243,8 +243,8 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
 Component.newBar = (path: string, opts: NewBarOpts) => {
   if (!opts.editMode) return ''
   return `
-<button onclick="dgEditing.create(event)" ${opts.disabled ? 'disabled ' : ''}class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)">
-  ${addIcon}<span>${htmlEncode(opts.label)}</span>
+<button onclick="dgEditing.create(event)" ${opts.disabled ? 'disabled ' : ''}class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onfocus="dgEditing.focus(event)" onkeydown="dgEditing.keydown(event)">
+  ${addIcon}<span class="dg-new-bar-label">${htmlEncode(opts.label)}</span>
 </button>
   `.trim()
 }
