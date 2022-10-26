@@ -112,7 +112,10 @@ window.dgEditing = {
       this.validdrops = e.data.validdrops
       const bars = Array.from(document.querySelectorAll('.dg-edit-bar, .dg-new-bar'))
       const droppable = {}
-      const barByPath = bars.reduce((barByPath, bar) => ({ ...barByPath, [this.barPath(bar)]: bar }), {})
+      const barByPath = bars.reduce((barByPath, bar) => {
+        barByPath[this.barPath(bar)] = bar
+        return barByPath
+      }, {})
       const paths = Object.keys(barByPath)
       for (const path of paths) {
         droppable[path] = this.droppable(barByPath[path])
