@@ -30,6 +30,6 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[] }, 
   render () {
     return `<!DOCTYPE html><html><head>${this.headContent}</head><body><nav>
       ${this.fetched.navPages.map(p => this.renderNavPage(p)).join('')}
-    </nav><main>${this.renderComponents('main')}${this.newBar('main')}</main></body></html>`
+    </nav><main>${this.renderComponents('main')}${this.newBar('main')}</main>© 2022</body></html>`
   }
 }
