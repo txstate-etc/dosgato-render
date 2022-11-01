@@ -10,7 +10,7 @@
   "scripts": {
     "prepublishOnly": "npm run build",
     "build": "rm -rf dist && tsc && cp -R src/static dist/static",
-    "watch": "nodemon --exec 'npm start' --ext ts,js,css",
+    "watch": "nodemon --exec 'npm start' --ext ts,js,css,scss",
     "lint": "eslint --ignore-path .gitignore .",
     "start": "node --no-warnings --enable-source-maps --loader ts-node/esm test/testserver.ts"
   },
