@@ -190,7 +190,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   }
 
   // execute the context phase
-  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 1 })
+  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 0 })
   await executeSetContext(editMode)(pageComponent)
 
   // provide content for the <head> element and give it to the page component
