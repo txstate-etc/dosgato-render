@@ -1,10 +1,14 @@
-import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock, FileDeclaration, SCSSInclude } from '@dosgato/templating'
+import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock, FileDeclaration, SCSSInclude, replaceLinksInText } from '@dosgato/templating'
+import cheerio from 'cheerio'
 import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
+import { parseDocument } from 'htmlparser2'
 import mime from 'mime-types'
 import sass from 'sass'
 import semver from 'semver'
+import { isNotBlank } from 'txstate-utils'
+import { RenderingAPIClient } from './api.js'
 import { resourceversion } from './version.js'
 
 function versionGreater (v2: string | undefined, v1: string | undefined) {
@@ -62,6 +66,38 @@ class SimpleImporter {
 }
 const importer = new SimpleImporter()
 
+function updateTag (h: cheerio.Cheerio<cheerio.Element>, level: number) {
+  for (const itm of h) { itm.tagName = `h${Math.min(6, level)}` }
+}
+
+function addHeaderClass (h: cheerio.Cheerio<cheerio.Element>, level: number, difference: number) {
+  h.addClass(`h${level - difference}styles`)
+}
+
+function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: number, headerIndex: number, allHeaders: cheerio.Cheerio<cheerio.Element>, highestLevel: number) {
+  while (headerIndex < allHeaders.length) {
+    const h = allHeaders.eq(headerIndex)
+    const headerLevel = parseInt(h.get(0)!.tagName.substring(1))
+    const difference = highestLevel - 3
+    if (headerLevel > parentLevel) {
+      updateTag(h, currentLevel)
+      addHeaderClass(h, currentLevel, difference)
+      headerIndex = processHeaders(false, currentLevel + 1, headerLevel, headerIndex + 1, allHeaders, highestLevel)
+    } else if (isRoot) {
+      updateTag(h, highestLevel)
+      addHeaderClass(h, currentLevel, difference)
+      headerIndex = processHeaders(false, highestLevel + 1, headerLevel, headerIndex + 1, allHeaders, highestLevel)
+    } else if (headerLevel === parentLevel) {
+      updateTag(h, currentLevel - 1)
+      addHeaderClass(h, currentLevel - 1, difference)
+      headerIndex++
+    } else {
+      break
+    }
+  }
+  return headerIndex
+}
+
 /**
  * This registry will get filled with Component and Page objects upon server startup. Each
  * instance of dosgato CMS will have a repo where the server administrator can import all the
@@ -80,6 +116,18 @@ export class TemplateRegistry {
 
   async addTemplate (template: typeof Component | typeof Page) {
     if (!template.templateKey) throw new Error(`template ${template.name} has undefined templateKey, that must be corrected`)
+    template.prototype.fetchRichText = async function (text: string) {
+      await (this.api as unknown as RenderingAPIClient).scanForLinks(text)
+    }
+    template.prototype.renderRichText = function (text: string, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
+      text = replaceLinksInText(text, (this.api as unknown as RenderingAPIClient).resolvedLinks)
+      const dom = parseDocument(text)
+      const $ = cheerio.load(dom)
+      const headerLevel = (opts?.headerLevel ?? (this.renderCtx.headerLevel as number) ?? 2) + (isNotBlank(opts?.advanceHeader) ? 1 : 0)
+      const allHeaders = $('h1,h2,h3,h4,h5,h6')
+      processHeaders(true, headerLevel, headerLevel - 1, 0, allHeaders, headerLevel)
+      return $.html()
+    }
     if (template.prototype instanceof Page && !this.pages.has(template.templateKey)) this.pages.set(template.templateKey, template as any)
     else if (!this.components.has(template.templateKey)) this.components.set(template.templateKey, template as any)
     this.all.push(template)
