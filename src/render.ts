@@ -1,10 +1,12 @@
-import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent, NewBarOpts } from '@dosgato/templating'
+import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent, NewBarOpts, replaceLinksInText } from '@dosgato/templating'
+import cheerio from 'cheerio'
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { parseDocument } from 'htmlparser2'
 import { ParsedUrlQuery } from 'querystring'
 import { templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 import { RenderingAPIClient } from './api.js'
-import { randomid, htmlEncode } from 'txstate-utils'
+import { randomid, htmlEncode, clone, isNotBlank } from 'txstate-utils'
 import { mimeTypes } from './mimetypes.js'
 
 // recursive helper function to traverse a hydrated page and return a flat array
@@ -20,19 +22,21 @@ function collectComponents (component: Component) {
 }
 
 // recursive helper function for the context phase of rendering (phase 2)
-function executeSetContext (editMode: boolean) {
-  const setContextFn = async (component: Component) => {
-    const components = Array.from(component.areas.values()).flat()
+async function executeSetContext (component: Component, renderCtx: any) {
+  for (const [areaName, components] of component.areas.entries()) {
     await Promise.all(components.map(async c => {
+      let newRenderCtx: any
       try {
-        if (!c.hadError) c.renderCtx = await c.setContext(component.renderCtx)
+        if (!c.hadError) {
+          c.renderCtx = renderCtx
+          newRenderCtx = await c.setContext(clone(renderCtx), areaName)
+        }
       } catch (e: any) {
         c.logError(e)
       }
-      await setContextFn(c)
+      await executeSetContext(c, newRenderCtx)
     }))
   }
-  return setContextFn
 }
 
 // recursive helper function for the final render phase of rendering (phase 3)
@@ -68,6 +72,38 @@ function renderVariation (extension: string, component: Component) {
   }
 }
 
+function updateTag (h: cheerio.Cheerio<cheerio.Element>, level: number) {
+  for (const itm of h) { itm.tagName = `h${Math.min(6, level)}` }
+}
+
+function addHeaderClass (h: cheerio.Cheerio<cheerio.Element>, level: number, difference: number) {
+  h.addClass(`h${level - difference}styles`)
+}
+
+function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: number, headerIndex: number, allHeaders: cheerio.Cheerio<cheerio.Element>, highestLevel: number) {
+  while (headerIndex < allHeaders.length) {
+    const h = allHeaders.eq(headerIndex)
+    const headerLevel = parseInt(h.get(0)!.tagName.substring(1))
+    const difference = highestLevel - 3
+    if (headerLevel > parentLevel) {
+      updateTag(h, currentLevel)
+      addHeaderClass(h, currentLevel, difference)
+      headerIndex = processHeaders(false, currentLevel + 1, headerLevel, headerIndex + 1, allHeaders, highestLevel)
+    } else if (isRoot) {
+      updateTag(h, highestLevel)
+      addHeaderClass(h, currentLevel, difference)
+      headerIndex = processHeaders(false, highestLevel + 1, headerLevel, headerIndex + 1, allHeaders, highestLevel)
+    } else if (headerLevel === parentLevel) {
+      updateTag(h, currentLevel - 1)
+      addHeaderClass(h, currentLevel - 1, difference)
+      headerIndex++
+    } else {
+      break
+    }
+  }
+  return headerIndex
+}
+
 // recursive helper function for transformation of plain-object componentData
 // into a hydrated instance of the Component class (or a descendent class like Page)
 function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, recursiveInherit?: boolean) {
@@ -80,6 +116,19 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 
   // hydrate the page data into full objects
   const component = new ComponentType(componentData, path, parent, editMode)
+  component.fetchRichText = async function (text: string) {
+    await (this.api as unknown as RenderingAPIClient).scanForLinks(text)
+  }
+  component.renderRichText = function (text: string, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
+    text = replaceLinksInText(text, (this.api as unknown as RenderingAPIClient).resolvedLinks)
+    const dom = parseDocument(text)
+    const $ = cheerio.load(dom)
+    const headerLevel = (opts?.headerLevel ?? this.renderCtx.headerLevel ?? 2) + (isNotBlank(opts?.advanceHeader) ? 1 : 0)
+    const allHeaders = $('h1,h2,h3,h4,h5,h6')
+    processHeaders(true, headerLevel, headerLevel - 1, 0, allHeaders, headerLevel)
+    return $.html()
+  }
+
   component.inheritedFrom = inheritedFrom
   if (recursiveInherit) component.editBar = () => ''
   if (inheritedFrom) component.newBar = () => ''
@@ -190,8 +239,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   }
 
   // execute the context phase
-  pageComponent.renderCtx = await pageComponent.setContext({ headerLevel: 0 })
-  await executeSetContext(editMode)(pageComponent)
+  await executeSetContext(pageComponent, { headerLevel: 1 })
 
   // provide content for the <head> element and give it to the page component
   const fontfiles = new Map<string, { href: string, format: string }>()

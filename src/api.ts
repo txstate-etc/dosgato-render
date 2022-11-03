@@ -1,12 +1,10 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, replaceLinksInText, SiteInfo } from '@dosgato/templating'
+import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, SiteInfo } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
 import { Cache, ensureString, isBlank, keyby, pick, stringify, toArray } from 'txstate-utils'
 import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
-import cheerio from 'cheerio'
-import { parseDocument } from 'htmlparser2'
 import { HttpError } from 'fastify-txstate'
 
 const SITE_INFO = 'site { id name launched url { path, prefix } }'
@@ -240,6 +238,7 @@ export class RenderingAPIClient implements APIClient {
   sitePrefix?: string
   context: 'live' | 'preview' | 'edit' = 'live'
   contextOrigin: string
+  resolvedLinks = new Map<string, string>()
   static contextPath = process.env.CONTEXT_PATH ?? ''
 
   constructor (public published: boolean, token?: string, req?: FastifyRequest) {
@@ -340,15 +339,10 @@ export class RenderingAPIClient implements APIClient {
     return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
 
-  async processRich (text: string) {
+  async scanForLinks (text: string) {
     const links = extractLinksFromText(text)
     const resolvedLinks = await Promise.all(links.map(async l => await this.resolveLink(l)))
-    const resolved = new Map<string, string>()
-    for (let i = 0; i < links.length; i++) resolved.set(ensureString(links[i]), resolvedLinks[i])
-    text = replaceLinksInText(text, resolved)
-    const dom = parseDocument(text)
-    const $ = cheerio.load(dom)
-    return $.html()
+    for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
   }
 
   async getImgAttributes (link: string | AssetLink, absolute?: boolean | undefined) {

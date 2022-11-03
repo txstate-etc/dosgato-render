@@ -1,4 +1,4 @@
-import { Component, ComponentData, printHeader } from '@dosgato/templating'
+import { advanceHeader, Component, ComponentData, ContextBase, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface PanelData extends ComponentData {
@@ -25,6 +25,10 @@ export class PanelTemplate extends Component<PanelData> {
 
   newLabel () {
     return 'Add Panel Content'
+  }
+
+  setContext (renderCtxFromParent: ContextBase) {
+    return advanceHeader(renderCtxFromParent, this.data.title)
   }
 
   render () {
