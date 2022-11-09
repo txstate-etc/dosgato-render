@@ -172,7 +172,14 @@ export class TemplateRegistry {
       if (!existing || versionGreater(block.version, existing.version)) {
         const finalBlock = block as RegistryCSSBlock
         this.cssblocks.set(key, finalBlock)
-        let css = finalBlock.css ?? readFileSync(finalBlock.path!, 'utf8')
+        let css: string
+        if (finalBlock.path) {
+          finalBlock.sass ??= finalBlock.path.endsWith('.scss')
+          css = readFileSync(finalBlock.path, 'utf8')
+        } else {
+          if (!finalBlock.css) throw new Error('CSS registered without either a path or string content. One or the other is required.')
+          css = finalBlock.css
+        }
 
         const fonts = new Map<string, { href: string, format: string }>()
         const matches = css.matchAll(/url\((.*?)\)\s+format\(['"](.*?)['"]\);/ig)
