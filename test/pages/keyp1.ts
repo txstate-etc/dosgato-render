@@ -7,7 +7,19 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[] }, 
     ['blanktemplate', { css: 'main { padding: 1em; }' }]
   ])
 
-  static jsBlocks = new Map()
+  static jsBlocks = new Map([
+    ['blanktemplate_admin', {
+      js: `
+        window.addEventListener('message', e => {
+          if (e.data.action === 'pagebar') console.log(e.data.label)
+        })
+      `
+    }]
+  ])
+
+  jsBlocks () {
+    return this.editMode ? ['blanktemplate_admin'] : []
+  }
 
   async fetch () {
     const [root, navPages] = await Promise.all([
