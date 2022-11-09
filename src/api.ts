@@ -2,7 +2,7 @@ import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, L
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
-import { Cache, ensureString, isBlank, keyby, pick, stringify, toArray } from 'txstate-utils'
+import { Cache, ensureString, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
 import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
@@ -11,6 +11,7 @@ const SITE_INFO = 'site { id name launched url { path, prefix } }'
 
 const PAGE_INFO = `
 id
+name
 linkId
 path
 createdAt
@@ -22,6 +23,7 @@ ${SITE_INFO}
 
 const PAGE_INFO_VERSION = `
 id
+name
 linkId
 path
 createdAt
@@ -289,6 +291,7 @@ export class RenderingAPIClient implements APIClient {
     `, { pagetreeId: this.pagetreeId, depth: opts.depth, dataPaths: opts.extra ?? [], published: this.published, beneath: toArray(opts.beneath) })
     const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
       ...p,
+      title: isBlank(p.title) ? titleCase(p.name) : p.title,
       href: this.getHref(p, { absolute: opts!.absolute }),
       children: []
     }))
