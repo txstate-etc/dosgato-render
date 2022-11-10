@@ -151,6 +151,26 @@ window.addEventListener('scroll', () => {
 
 window.addEventListener('click', () => window.dgEditing.deselect())
 
+/**
+ * Prevent any links from navigating the iframe away
+ */
+function stopNav (e) {
+  e.preventDefault()
+}
+const mutationobserver = new window.MutationObserver(() => {
+  const links = document.querySelectorAll('a[href]')
+  for (const link of links) {
+    link.removeEventListener('click', stopNav)
+    link.addEventListener('click', stopNav)
+  }
+})
+mutationobserver.observe(document.body, {
+  subtree: true,
+  childList: true,
+  attributes: false,
+  characterData: false
+})
+
 document.body.innerHTML += `
 <svg style="display: none" version="2.0"><defs>
   <symbol id="dg-ed-add" viewbox="0 0 256 256">
