@@ -196,7 +196,7 @@ class SharedBar extends HTMLElement {
 
   installCss () {
     const style = document.createElement('style')
-    style.innerHTML = window.dgEditingBlocks.map(block => `@import url(/.resources/${currentVersion}/${block}.css);`).join('\n') + `@import url(${editingCss});`
+    style.innerHTML = `@import url(${editingCss});` + window.dgEditingBlocks.map(block => `@import url(/.resources/${currentVersion}/${block}.css);`).join('')
     this.tmpl.appendChild(style)
   }
 }
