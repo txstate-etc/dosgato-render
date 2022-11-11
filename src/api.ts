@@ -337,7 +337,7 @@ export class RenderingAPIClient implements APIClient {
       ret = resolvePath(RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, page.path)
     } else {
       // site-relative preview
-      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/public`, page.path)
+      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/${this.published ? 'public' : 'latest'}`, page.path)
     }
     return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }

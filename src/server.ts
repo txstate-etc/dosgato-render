@@ -1,11 +1,12 @@
 import { type APIClient, ResourceProvider } from '@dosgato/templating'
+import cookie from '@fastify/cookie'
 import { Blob } from 'buffer'
 import { FastifyRequest } from 'fastify'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { fileTypeFromFile } from 'file-type'
 import { createReadStream, readFileSync } from 'fs'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
-import { Cache } from 'txstate-utils'
+import { Cache, rescue } from 'txstate-utils'
 import { RenderingAPIClient } from './api.js'
 import { RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
@@ -30,7 +31,7 @@ const resignedCache = new Cache(async ({ token, path }: { token: string, path?: 
     }
     return token
   } catch (e: any) {
-    throw new HttpError(401)
+    throw new HttpError(400)
   }
 }, { freshseconds: 1800 })
 
@@ -48,7 +49,7 @@ const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: 
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
   if (header[0] === 'Bearer') return header[1]
-  return req.query?.token ?? ''
+  return req.query?.token ?? req.cookies.dg_token ?? ''
 }
 
 async function resignToken (token: string, allowEmptyToken?: boolean, path?: string) {
@@ -64,6 +65,8 @@ export class RenderingServer extends Server {
   constructor (config?: FastifyTxStateOptions) {
     super(config)
 
+    void this.app.register(cookie)
+
     /**
      * Route for preview renders - no edit bars, anonymous access only when
      * :version is 'public'
@@ -74,13 +77,30 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         const published = req.params.version === 'public' ? true : undefined
         const version = published ? undefined : (parseInt(req.params.version) || undefined)
-        const token = await resignToken(getToken(req), published, path)
+        let token: string
+        try {
+          token = await resignToken(getToken(req), published, path)
+        } catch (e: any) {
+          if (e instanceof HttpError && e.statusCode === 401) {
+            void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
+            return
+          } else {
+            throw e
+          }
+        }
+        if (req.query.token) {
+          void res.setCookie('dg_token', req.query.token, { httpOnly: true, sameSite: 'strict', path: '/.preview/' })
+          const withoutToken = new URL(req.url, `${req.protocol}://${req.hostname}`)
+          withoutToken.searchParams.delete('token')
+          void res.redirect(302, withoutToken.toString())
+          return
+        }
         const api = new this.APIClient<RenderingAPIClient>(!!published, token, req)
         api.context = 'preview'
         api.pagetreeId = req.params.pagetreeId
-        const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion, published, version)
-        api.sitename = page.site.name
+        const page = await rescue(api.getPreviewPage(req.params.pagetreeId, path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
         if (!page) throw new HttpError(404)
+        api.sitename = page.site.name
         return await renderPage(api, req, res, page, extension, false)
       }
     )
@@ -125,7 +145,7 @@ export class RenderingServer extends Server {
      * locked down to a single path, and only useful to view the latest version of the page. This
      * vastly limits the damage if an editor writes custom js to collect it.
      */
-    this.app.get<{ Params: { '*': string } }>('/token/*', async (req, res) => {
+    this.app.get<{ Params: { '*': string } }>('/.token/*', async (req, res) => {
       const token = getToken(req as any)
       const { path } = parsePath(req.params['*'])
       if (!path) throw new HttpError(400, 'Must specify a path to get a temporary token.')
