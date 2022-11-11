@@ -31,7 +31,7 @@ const resignedCache = new Cache(async ({ token, path }: { token: string, path?: 
     }
     return token
   } catch (e: any) {
-    throw new HttpError(400)
+    throw new HttpError(401)
   }
 }, { freshseconds: 1800 })
 

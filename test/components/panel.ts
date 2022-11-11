@@ -8,6 +8,12 @@ export interface PanelData extends ComponentData {
 export class PanelTemplate extends Component<PanelData> {
   static templateKey = 'keyc2'
   static cssBlocks = new Map([
+    ['panel_edit', {
+      targetsEditBars: true,
+      css: `
+        .dg-panel-bar.dg-edit-bar { border-color: green !important; }
+      `
+    }],
     ['panel', {
       css: `
         .dg-panel {
@@ -32,6 +38,6 @@ export class PanelTemplate extends Component<PanelData> {
   }
 
   render () {
-    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderArea('content', { max: 2 })}</div></div>`
+    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderArea('content', { max: 2, editBarOpts: { extraClass: 'dg-panel-bar' } })}</div></div>`
   }
 }

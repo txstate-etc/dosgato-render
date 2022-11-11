@@ -3,7 +3,7 @@ import cheerio from 'cheerio'
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { parseDocument } from 'htmlparser2'
 import { ParsedUrlQuery } from 'querystring'
-import { templateRegistry } from './registry.js'
+import { RegistryCSSBlock, templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 import { RenderingAPIClient } from './api.js'
 import { randomid, htmlEncode, clone, isNotBlank } from 'txstate-utils'
@@ -199,56 +199,36 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   // provide content for the <head> element and give it to the page component
   const fontfiles = new Map<string, { href: string, format: string }>()
   const cssBlockNames = Array.from(new Set(componentsIncludingInherited.flatMap(r => r.cssBlocks())))
-  const cssBlocks = cssBlockNames.map(name => ({ name, block: templateRegistry.cssblocks.get(name) })).filter(({ block }) => block != null)
-  for (const { block } of cssBlocks) {
-    for (const fontfile of block!.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
+  const cssBlocks = cssBlockNames.map(name => ({ name, block: templateRegistry.cssblocks.get(name) })).filter(({ block }) => block != null) as { name: string, block: RegistryCSSBlock }[]
+  const normalCssBlocks = cssBlocks.filter(b => !b.block.targetsEditBars)
+  const editCssBlocks = cssBlocks.filter(b => b.block.targetsEditBars)
+  for (const { block } of normalCssBlocks) {
+    for (const fontfile of block.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
   }
-  pageComponent.headContent = (editMode ? editModeIncludes() : '') + [
-    ...cssBlocks.map(({ name, block }) =>
-      `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block!.async ? ' media="print" onload="this.media=all"' : ''}>`
+  pageComponent.headContent = [
+    ...normalCssBlocks.map(({ name, block }) =>
+      `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block.async ? ' media="print" onload="this.media=all"' : ''}>`
     ),
     ...Array.from(fontfiles.values()).map(ff =>
       `<link rel="preload" as="font" href="${ff.href}" type="${ff.format}" crossorigin="anonymous">`
     ),
     ...Array.from(new Set(componentsIncludingInherited.flatMap(r => r.jsBlocks()))).map(name => ({ name, block: templateRegistry.jsblocks.get(name) })).filter(({ name, block }) => block != null).map(({ name, block }) =>
       `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ' defer'}></script>`)
-  ].join('\n')
+  ].join('\n') + (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>` : '')
   // execute the render phase
   return renderComponent(pageComponent)
 }
 
-const addIcon = '<svg version="2.0"><use href="#dg-ed-add"/></svg>'
-const editIcon = '<svg version="2.0"><use href="#dg-ed-edit"/></svg>'
-const moveIcon = '<svg version="2.0"><use href="#dg-ed-move"/></svg>'
-const trashIcon = '<svg version="2.0"><use href="#dg-ed-trash"/></svg>'
-
 Component.editBar = (path: string, opts: EditBarOpts) => {
   if (!opts.editMode) return ''
-  const id = randomid()
   if (opts.inheritedFrom) {
-    return `
-<div class="dg-edit-bar dg-edit-bar-inherited ${opts.extraClass ?? ''}">
-  <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  <button role="link" onclick="dgEditing.jump('${opts.inheritedFrom}')">Jump to Original</button>
-</div>
-    `.trim()
+    return `<dg-inherit-bar${opts.extraClass ? ` class="${opts.extraClass}"` : ''} label="${htmlEncode(opts.label)}" inherited-from="${htmlEncode(opts.inheritedFrom)}">`
   } else {
-    return `
-<div class="dg-edit-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'true' : 'false'}" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onkeydown="dgEditing.keydown(event)">
-  <span id="${id}" class="dg-edit-bar-label">${htmlEncode(opts.label)}</span>
-  <span class="dg-edit-bar-move">${moveIcon}</span>
-  ${opts.hideEdit ? '' : `<button onclick="dgEditing.edit(event)" onfocus="dgEditing.focus(event)" aria-describedby="${id}">${editIcon}</button>`}
-  <button ${opts.disableDelete ? 'disabled ' : ''}onclick="dgEditing.del(event)" onfocus="dgEditing.focus(event)" aria-describedby="${id}">${trashIcon}</button>
-</div>
-    `.trim()
+    return `<dg-edit-bar${opts.hideEdit ? ' hide-edit' : ''}${opts.disableDelete ? ' disable-delete' : ''}${opts.extraClass ? ` class="${opts.extraClass}"` : ''} data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'true' : 'false'}" label="${htmlEncode(opts.label)}"></dg-edit-bar>`
   }
 }
 
 Component.newBar = (path: string, opts: NewBarOpts) => {
   if (!opts.editMode) return ''
-  return `
-<button onclick="dgEditing.create(event)" ${opts.disabled ? 'disabled ' : ''}class="dg-new-bar ${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onfocus="dgEditing.focus(event)" onkeydown="dgEditing.keydown(event)">
-  ${addIcon}<span class="dg-new-bar-label">${htmlEncode(opts.label)}</span>
-</button>
-  `.trim()
+  return `<dg-new-bar ${opts.disabled ? 'disabled ' : ''}class="${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" label="${htmlEncode(opts.label)}">`
 }
