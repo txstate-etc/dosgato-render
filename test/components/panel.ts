@@ -11,7 +11,7 @@ export class PanelTemplate extends Component<PanelData> {
     ['panel_edit', {
       targetsEditBars: true,
       css: `
-        .dg-panel-bar.dg-edit-bar { border-color: green !important; }
+        .dg-panel-bar { border-color: green; }
       `
     }],
     ['panel', {

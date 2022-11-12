@@ -85,6 +85,6 @@
   content: ' (drop to place below)'
 }
 
-.dg-dragging {
-  border-color: #c13fcd;
+.dg-edit-bar.dg-dragging {
+  border-style: dashed;
 }

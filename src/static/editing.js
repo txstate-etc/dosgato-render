@@ -19,7 +19,7 @@ window.dgEditing = {
       action: 'select',
       path: this.barPath(barTarget),
       label: this.barLabel(barTarget),
-      maxreached: barTarget.getAttribute('data-maxreached') === 'true'
+      maxreached: barTarget.getAttribute('data-maxreached') === 'true' || barTarget.hasAttribute('disabled')
     }, '*')
   },
   select (e) {
@@ -52,23 +52,41 @@ window.dgEditing = {
   barLabel (bar) {
     return bar.getAttribute('label')
   },
-  droppable (bar) {
+  isDroppable (bar, dragging) {
     const path = this.barPath(bar)
-    return this.validdrops.has(path) && !bar.disabled && bar.getAttribute('data-maxreached') !== 'true'
+    return !bar.hasAttribute('disabled') && (
+      bar.getAttribute('data-maxreached') !== 'true' || path.split('.').slice(0, -1).join('.') === dragging.split('.').slice(0, -1).join('.')
+    )
   },
   enter (e) {
     const target = this.target(e.target)
+    const path = this.barPath(target)
     target.dragEnterCount = (target.dragEnterCount ?? 0) + 1
-    if (this.droppable(target)) target.classList.add('dg-edit-over')
+    if (this.droppable[path]) target.classList.add('dg-edit-over')
   },
   focus (e) {
     this._select(this.target(e.target))
   },
   keydown (e) {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'x') {
+        this.send('cut', e)
+      } else if (e.key === 'c') {
+        this.send('copy', e)
+      } else if (e.key === 'v') {
+        this.send('paste', e)
+      }
+    } else if (e.key === 'Escape') {
+      this.send('cancelCopy', e)
+    }
     if (e.ctrlKey || e.altKey || e.metaKey || e.key === 'Insert') return
     if (e.key === 'm') {
       e.preventDefault()
       e.stopPropagation()
+      this.send('menu', e)
+    } else if (e.key === 'Escape') {
+      this.deselect()
+      document.activeElement.blur()
       this.send('menu', e)
     }
   },
@@ -78,7 +96,7 @@ window.dgEditing = {
     if (target.dragEnterCount === 0) target.classList.remove('dg-edit-over')
   },
   drag (e) {
-    this.validdrops = new Set()
+    this.droppable = {}
     const target = this.target(e.target)
     const path = this.barPath(target)
     this.dragging = path
@@ -96,36 +114,35 @@ window.dgEditing = {
     const target = this.target(e.target)
     const path = this.barPath(target)
     target.classList.remove('dg-edit-over')
-    if (this.droppable(target)) {
+    if (this.droppable[path]) {
       e.preventDefault()
       window.top.postMessage({ action: 'drop', from: this.dragging, to: path }, '*')
     }
   },
   over (e) {
-    const target = this.target(e.target)
-    if (this.droppable(target)) {
+    const path = this.path(e.target)
+    if (this.droppable[path]) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
     }
   },
   message (e) {
     if ('validdrops' in e.data && this.dragging) {
-      this.validdrops = e.data.validdrops
+      const { validdrops } = e.data
       const bars = Array.from(document.querySelectorAll('[data-path]'))
-      const droppable = {}
       const barByPath = bars.reduce((barByPath, bar) => {
         barByPath[this.barPath(bar)] = bar
         return barByPath
       }, {})
       const paths = Object.keys(barByPath)
       for (const path of paths) {
-        droppable[path] = this.droppable(barByPath[path])
+        this.droppable[path] = validdrops.has(path) && this.isDroppable(barByPath[path], this.dragging)
       }
       const belowDragging = this.dragging.replace(/\.(\d+)$/, (_, idx) => `.${parseInt(idx) + 1}`)
       for (const path of paths) {
         if (path === belowDragging) barByPath[path].classList.add('dg-dragging-below')
         if (path === this.dragging) barByPath[path].classList.add('dg-dragging')
-        else if (!droppable[path]) barByPath[path].classList.add('dg-no-drop')
+        else if (!this.droppable[path]) barByPath[path].classList.add('dg-no-drop')
         else barByPath[path].classList.add('dg-yes-drop')
       }
     } else if ('scrollTop' in e.data) {
@@ -203,7 +220,7 @@ class SharedBar extends HTMLElement {
 
 const editBar = document.createElement('template')
 editBar.innerHTML = `
-<div draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onkeydown="dgEditing.keydown(event)">
+<div tabindex="-1" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onkeydown="dgEditing.keydown(event)">
   <span class="dg-edit-bar-label"></span>
   <span class="dg-edit-bar-move">${moveIcon}</span>
 </div>`
