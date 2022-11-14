@@ -6,7 +6,7 @@ export interface LinkData extends ComponentData {
   text: string
 }
 
-export class LinkTemplate extends Component<LinkData> {
+export class LinkTemplate extends Component<LinkData, { link: string }> {
   static templateKey = 'keyc1'
   static cssBlocks = new Map([
     ['linktemplate', {
@@ -17,7 +17,11 @@ export class LinkTemplate extends Component<LinkData> {
     }]
   ])
 
+  async fetch () {
+    return { link: await this.api.resolveLink(this.data.link) }
+  }
+
   render () {
-    return `<a href="${htmlEncode(this.data.link)}" class="dg-link">${isBlank(this.data.text) ? htmlEncode(this.data.link) : htmlEncode(this.data.text)}</a>`
+    return `<a href="${htmlEncode(this.fetched.link)}" class="dg-link">${isBlank(this.data.text) ? htmlEncode(this.data.link) : htmlEncode(this.data.text)}</a>`
   }
 }
