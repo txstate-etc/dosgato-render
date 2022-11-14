@@ -1,8 +1,8 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, SiteInfo } from '@dosgato/templating'
+import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
-import { Cache, ensureString, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
+import { Cache, ensureString, groupby, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
 import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
@@ -54,14 +54,43 @@ const anonToken = await new SignJWT({ sub: 'anonymous' })
   .setProtectedHeader({ alg: 'HS256' })
   .sign(jwtSignKey)
 
+function matchAssetPath (link: AssetLink, asset: { path: string, site: { id: string, name: string } }) {
+  if (link.path === asset.path) return true
+  return link.siteId && link.siteId === asset.site.id && link.path?.split('/').slice(2).join('/') === asset.path.split('/').slice(2).join('/')
+}
+
+export interface FetchedAsset {
+  id: string
+  path: string
+  checksum: string
+  name: string
+  extension: string
+  filename: string
+  mime: string
+  resizes: {
+    id: string
+    width: number
+    height: number
+    mime: string
+  }[]
+  box: {
+    width: number
+    height: number
+  }
+  site: {
+    id: string
+    name: string
+  }
+}
+
 const assetByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetLink[], api: RenderingAPIClient) => {
-    const { assets } = await api.query<{ assets: { id: string, path: string, checksum: string, name: string, extension: string, mime: string, resizes: { width: number, height: number, mime: string }[], box: { width: number, height: number } }[] }>(
-      'query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { id path checksum name extension mime resizes { width height mime } box { width height }  } }'
-      , { links: links.map(l => pick(l, 'id', 'path', 'checksum')) })
+    const { assets } = await api.query<{ assets: FetchedAsset[] }>(
+      'query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { id path checksum name extension filename mime resizes { id width height mime } box { width height } site { id name }  } }'
+      , { links: links.map(l => pick(l, 'id', 'path', 'checksum', 'siteId')) })
     return assets
   },
-  scoreMatch: (link, asset) => asset.id === link.id ? 3 : (asset.path === link.path ? 2 : (asset.checksum === link.checksum ? 1 : 0))
+  scoreMatch: (link, asset) => asset.id === link.id ? 3 : (matchAssetPath(link, asset) ? 2 : (asset.checksum === link.checksum ? 1 : 0))
 })
 
 const ANCESTOR_QUERY = `
@@ -313,7 +342,8 @@ export class RenderingAPIClient implements APIClient {
       if (!target) return 'brokenlink'
       return this.getHref(target, opts)
     } else if (link.type === 'asset') {
-      return 'http://example.com' // TODO
+      const target = await this.getAssetByLink(link)
+      return this.assetHref(target)
     }
     return 'brokenlink'
   }
@@ -348,12 +378,36 @@ export class RenderingAPIClient implements APIClient {
     for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
   }
 
-  async getImgAttributes (link: string | AssetLink, absolute?: boolean | undefined) {
-    return {} as any // TODO
+  assetHref (asset: FetchedAsset | undefined) {
+    if (!asset) return 'brokenlink'
+    if (asset.box) {
+      return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/2000/${asset.filename}`
+    } else {
+      return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/${asset.filename}`
+    }
   }
 
-  async getPageData ({ id, path }: { id?: string, path?: string }) {
-    return {} as any // TODO
+  resizeHref (resize: FetchedAsset['resizes'][number], asset: FetchedAsset) {
+    return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/resize/${resize.id}/${asset.filename}`
+  }
+
+  srcSet (resizes: FetchedAsset['resizes'], asset: FetchedAsset) {
+    return resizes.map(r => `${this.resizeHref(r, asset)} ${r.width}w`).join(', ')
+  }
+
+  async getImgAttributes (link: string | AssetLink, absolute?: boolean | undefined): Promise<PictureAttributes> {
+    const asset = await this.getAssetByLink(link)
+    if (!asset) throw new Error('Targeted image no longer exists.')
+    if (!asset.box) throw new Error('Targeted asset is not an image.')
+    const resizesByMime = groupby(asset.resizes, 'mime')
+    return {
+      src: this.assetHref(asset),
+      width: asset.box.width,
+      height: asset.box.height,
+      srcset: this.srcSet(resizesByMime[asset.mime], asset),
+      widths: asset.resizes.filter(r => r.mime === asset.mime).map(r => ({ width: r.width, src: this.resizeHref(r, asset) })),
+      alternates: Object.keys(resizesByMime).filter(m => m !== asset.mime).map(m => ({ mime: m, srcset: this.srcSet(resizesByMime[m], asset), widths: resizesByMime[m].map(r => ({ width: r.width, src: this.resizeHref(r, asset) })) }))
+    }
   }
 
   async getDataByLink (link: string | DataLink | DataFolderLink) {
@@ -374,8 +428,9 @@ export class RenderingAPIClient implements APIClient {
     return processPageRecord(pages[0])
   }
 
-  async getAssetByLink (link: AssetLink, dlf: DataLoaderFactory) {
-    return await dlf.get(assetByLinkLoader).load(link)
+  async getAssetByLink (link: AssetLink | string) {
+    if (typeof link === 'string') link = JSON.parse(link) as AssetLink
+    return await this.dlf.get(assetByLinkLoader).load(link)
   }
 
   async identifyToken (token: string) {
