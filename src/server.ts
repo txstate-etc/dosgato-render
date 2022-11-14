@@ -225,12 +225,14 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
       const { path, extension } = parsePath(req.params['*'])
-      if (!path || path === '/') throw new HttpError(404)
-      if (!extension) return await res.redirect(301, `${path}.html`)
+      if (path && path !== '/' && !extension) return await res.redirect(301, `${path}.html`)
       const api = new this.APIClient<RenderingAPIClient>(true, undefined, req)
       api.context = 'live'
       const page = await api.getLaunchedPage(req.hostname, path, schemaversion)
-      if (!page) throw new HttpError(404)
+      if (!page) {
+        if (path && path !== '/') throw new HttpError(404)
+        else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
+      }
       api.sitePrefix = page.site.url.prefix
       return await renderPage(anonAPIClient, req, res, page, extension, false)
     })
