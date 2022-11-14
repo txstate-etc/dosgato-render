@@ -174,19 +174,21 @@ window.addEventListener('click', () => window.dgEditing.deselect())
 function stopNav (e) {
   e.preventDefault()
 }
-const mutationobserver = new window.MutationObserver(() => {
+function stopLinks () {
   const links = document.querySelectorAll('a[href]')
   for (const link of links) {
     link.removeEventListener('click', stopNav)
     link.addEventListener('click', stopNav)
   }
-})
+}
+const mutationobserver = new window.MutationObserver(stopLinks)
 mutationobserver.observe(document.body, {
   subtree: true,
   childList: true,
   attributes: false,
   characterData: false
 })
+stopLinks()
 
 function randomid (length = 10) {
   return String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).slice(2, length + 1)
