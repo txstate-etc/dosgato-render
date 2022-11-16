@@ -36,9 +36,12 @@ const resignedCache = new Cache(async ({ token, path }: { token: string, path?: 
 }, { freshseconds: 1800 })
 
 const anonAPIClient = new RenderingAPIClient(true)
-const tempTokenCache = new Cache(async ({ token, path }: { token: string, path: string }) => {
+const tempTokenCache = new Cache(async ({ token, path, currentToken }: { token: string, path: string, currentToken?: string }) => {
   const sub = await anonAPIClient.identifyToken(token)
   if (!sub) throw new HttpError(401)
+  if (currentToken && await rescue(jwtVerify(currentToken, jwtSignKey), false)) {
+    return currentToken
+  }
   return await new SignJWT({ sub, path })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('dg-render-temporary')
@@ -63,6 +66,16 @@ export class RenderingServer extends Server {
   private APIClient!: APIClientClass
 
   constructor (config?: FastifyTxStateOptions) {
+    const existingCheckOrigin = config?.checkOrigin
+    config ??= {}
+    config.checkOrigin = (req: FastifyRequest) => {
+      if (existingCheckOrigin?.(req)) return true
+      if (req.routerPath === '/.resources/:version/:file') {
+        const file = templateRegistry.files.get((req.params as any).file)
+        return req.headers.origin === 'null' && !!file?.mime.startsWith('font/')
+      }
+      return false
+    }
     super(config)
 
     void this.app.register(cookie)
@@ -145,11 +158,11 @@ export class RenderingServer extends Server {
      * locked down to a single path, and only useful to view the latest version of the page. This
      * vastly limits the damage if an editor writes custom js to collect it.
      */
-    this.app.get<{ Params: { '*': string } }>('/.token/*', async (req, res) => {
+    this.app.get<{ Params: { '*': string }, Querystring: { currentToken?: string } }>('/.token/*', async (req, res) => {
       const token = getToken(req as any)
       const { path } = parsePath(req.params['*'])
       if (!path) throw new HttpError(400, 'Must specify a path to get a temporary token.')
-      return await tempTokenCache.get({ token, path })
+      return await tempTokenCache.get({ token, path, currentToken: req.query.currentToken })
     })
 
     /**
