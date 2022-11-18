@@ -222,7 +222,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
 Component.editBar = (path: string, opts: EditBarOpts) => {
   if (!opts.editMode) return ''
   if (opts.inheritedFrom) {
-    return `<dg-inherit-bar${opts.extraClass ? ` class="${opts.extraClass}"` : ''} label="${htmlEncode(opts.label)}" inherited-from="${htmlEncode(opts.inheritedFrom)}">`
+    return `<dg-inherit-bar${opts.extraClass ? ` class="${opts.extraClass}"` : ''} label="${htmlEncode(opts.label)}" inherited-from="${htmlEncode(opts.inheritedFrom)}"></dg-inherit-bar>`
   } else {
     return `<dg-edit-bar${opts.hideEdit ? ' hide-edit' : ''}${opts.disableDelete ? ' disable-delete' : ''}${opts.extraClass ? ` class="${opts.extraClass}"` : ''} data-path="${htmlEncode(path)}" data-maxreached="${opts.disableDrop ? 'true' : 'false'}" label="${htmlEncode(opts.label)}"></dg-edit-bar>`
   }
