@@ -160,7 +160,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       c.fetched = await c.fetch()
       const extraComponents: Component[] = []
       for (const entry of registered) {
-        if (!c.areas.has(entry.area)) c.areas.set(entry.area, [])
+        if (!c.areas.has(entry.area) || entry.mode === 'replace') c.areas.set(entry.area, [])
         const fromPageId = Array.isArray(entry.fromPageId) ? entry.fromPageId : Array(entry.components.length).fill(entry.fromPageId)
         for (let i = 0; i < entry.components.length; i++) {
           const cData = entry.components[i]
@@ -175,7 +175,6 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
               c.registerInherited = () => {} // inherited components cannot inherit further components
             }
             extraComponents.push(...hydratedPlusSubComponents)
-            if (entry.mode === 'replace') c.areas.set(entry.area, [])
             if (entry.mode === 'top') c.areas.get(entry.area)!.splice(i, 0, hydrated)
             else c.areas.get(entry.area)!.push(hydrated)
           }
