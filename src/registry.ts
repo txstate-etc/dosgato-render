@@ -7,7 +7,7 @@ import { parseDocument } from 'htmlparser2'
 import mime from 'mime-types'
 import sass from 'sass'
 import semver from 'semver'
-import { isNotBlank } from 'txstate-utils'
+import { isBlank, isNotBlank } from 'txstate-utils'
 import { RenderingAPIClient } from './api.js'
 import { resourceversion } from './version.js'
 
@@ -116,10 +116,11 @@ export class TemplateRegistry {
 
   async addTemplate (template: typeof Component | typeof Page) {
     if (!template.templateKey) throw new Error(`template ${template.name} has undefined templateKey, that must be corrected`)
-    template.prototype.fetchRichText = async function (text: string) {
-      await (this.api as unknown as RenderingAPIClient).scanForLinks(text)
+    template.prototype.fetchRichText = async function (text: string | undefined) {
+      if (text) await (this.api as unknown as RenderingAPIClient).scanForLinks(text)
     }
-    template.prototype.renderRichText = function (text: string, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
+    template.prototype.renderRichText = function (text: string | undefined, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
+      if (isBlank(text)) return ''
       text = replaceLinksInText(text, (this.api as unknown as RenderingAPIClient).resolvedLinks)
       const dom = parseDocument(text)
       const $ = cheerio.load(dom)
