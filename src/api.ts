@@ -42,7 +42,7 @@ query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $publishe
 `
 
 const PREVIEW_PAGE_QUERY = `
-query getPreviewPage ($pagetreeId: ID!, $schemaversion: DateTime!, $path: String!, $published: Boolean, $version: Int) {
+query getPreviewPage ($pagetreeId: ID!, $schemaversion: DateTime!, $path: UrlSafePath!, $published: Boolean, $version: Int) {
   pages (filter: { pagetreeIds: [$pagetreeId], paths: [$path] }) {
     ${PAGE_INFO_VERSION}
   }
@@ -94,7 +94,7 @@ const assetByLinkLoader = new BestMatchLoader({
 })
 
 const ANCESTOR_QUERY = `
-query getAncestorPages ($ids: [ID!], $paths: [String!], $schemaversion: DateTime!, $published: Boolean) {
+query getAncestorPages ($ids: [ID!], $paths: [UrlSafePath!], $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { ids: $ids, paths: $paths }) {
     id
     path
@@ -126,7 +126,7 @@ const ancestorsByPathLoader = new PrimaryKeyLoader({
 ancestorsByIdLoader.addIdLoader(ancestorsByPathLoader)
 
 const ROOTPAGE_QUERY = `
-query getRootPage ($ids: [ID!], $paths: [String!], $schemaversion: DateTime!, $published: Boolean) {
+query getRootPage ($ids: [ID!], $paths: [UrlSafePath!], $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { ids: $ids, paths: $paths }) {
     id
     path
@@ -168,14 +168,14 @@ const rootPageByPathLoader = new PrimaryKeyLoader({
 rootPageByIdLoader.addIdLoader(rootPageByPathLoader)
 
 const PAGE_QUERY = `
-query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetreeIds: [ID!], $schemaversion: DateTime!, $published: Boolean) {
+query getPage ($ids: [ID!], $paths: [UrlSafePath!], $links: [PageLinkInput!], $pagetreeIds: [ID!], $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
     ${SITE_INFO}
     ${PAGE_INFO}
   }
 }`
 const PAGE_QUERY_NO_DATA = `
-query getPage ($ids: [ID!], $paths: [String!], $links: [PageLinkInput!], $pagetreeIds: [ID!]) {
+query getPage ($ids: [ID!], $paths: [UrlSafePath!], $links: [PageLinkInput!], $pagetreeIds: [ID!]) {
   pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
     ${SITE_INFO}
     id
@@ -306,7 +306,7 @@ export class RenderingAPIClient implements APIClient {
     opts ??= {}
     if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
     const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
-      query getNavigation ($pagetreeId: ID!, $beneath: [String!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
+      query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
         pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath }) {
           id
           name
