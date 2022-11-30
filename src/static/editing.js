@@ -146,6 +146,15 @@ window.dgEditing = {
         else barByPath[path].classList.add('dg-yes-drop')
       }
     } else if ('scrollTop' in e.data) {
+      this.state = e.data.state
+      for (const cb of this.stateCallbacks) {
+        try {
+          cb(this.state)
+        } catch (e) {
+          console.error(e)
+        }
+      }
+      this.stateCallbacks = undefined
       window.scrollTo({ top: e.data.scrollTop })
       const bar = document.querySelector(`[data-path="${e.data.selectedPath}"]`)
       if (!bar) return
@@ -155,6 +164,15 @@ window.dgEditing = {
       const bar = document.querySelector(`[data-path="${e.data.focus}"]`)
       bar.shadowRoot.querySelector('button')?.focus()
     }
+  },
+  saveState (key, val) {
+    this.state = { ...this.state, [key]: val }
+    window.top.postMessage({ action: 'save', state: this.state }, '*')
+  },
+  stateCallbacks: [],
+  onStateLoaded (cb) {
+    if (this.stateCallbacks == null) cb(this.state)
+    else this.stateCallbacks.push(cb)
   }
 }
 
