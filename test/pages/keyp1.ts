@@ -10,8 +10,12 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[] }, 
   static jsBlocks = new Map([
     ['blanktemplate_admin', {
       js: `
+        const main = document.body.querySelector('main')
+        const nav = document.body.querySelector('nav')
         window.addEventListener('message', e => {
-          if (e.data.action === 'pagebar') console.log(e.data.label)
+          if (e.data.action !== 'pagebar') return
+          if (main.isConnected) main.remove()
+          else nav.after(main)
         })
       `
     }]

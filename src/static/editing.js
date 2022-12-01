@@ -236,6 +236,13 @@ class SharedBar extends HTMLElement {
     style.innerHTML = `@import url(${editingCss});` + window.dgEditingBlocks.map(block => `@import url(/.resources/${currentVersion}/${block}.css);`).join('')
     this.tmpl.appendChild(style)
   }
+
+  connectedCallback () {
+    if (this.initialized) return
+    this.initialized = true
+    this.attachShadow({ mode: 'open' })
+    this.init()
+  }
 }
 
 const editBar = document.createElement('template')
@@ -253,8 +260,7 @@ class EditBar extends SharedBar {
     this.trash.disabled = this.hasAttribute('disable-delete')
   }
 
-  connectedCallback () {
-    this.attachShadow({ mode: 'open' })
+  init () {
     this.tmpl = editBar.content.cloneNode(true)
     this.bar = this.tmpl.querySelector('div')
     this.installCss()
@@ -300,8 +306,7 @@ class NewBar extends SharedBar {
     this.setClass('dg-new-bar')
   }
 
-  connectedCallback () {
-    this.attachShadow({ mode: 'open' })
+  init () {
     this.tmpl = newBar.content.cloneNode(true)
     this.bar = this.tmpl.querySelector('button')
     this.installCss()
@@ -327,8 +332,7 @@ class InheritBar extends SharedBar {
     this.setClass('dg-edit-bar dg-edit-bar-inherited')
   }
 
-  connectedCallback () {
-    this.attachShadow({ mode: 'open' })
+  init () {
     this.tmpl = inheritBar.content.cloneNode(true)
     this.bar = this.tmpl.querySelector('div')
     this.installCss()
