@@ -98,6 +98,7 @@ window.dgEditing = {
   drag (e) {
     this.droppable = {}
     const target = this.target(e.target)
+    this._select(target)
     const path = this.barPath(target)
     this.dragging = path
     const bars = Array.from(document.querySelectorAll('[data-path]'))

@@ -84,7 +84,3 @@
 .dg-edit-bar.dg-yes-drop.dg-dragging-below .dg-edit-bar-label:after {
   content: ' (drop to place below)'
 }
-
-.dg-edit-bar.dg-dragging {
-  border-style: dashed;
-}
