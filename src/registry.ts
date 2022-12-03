@@ -106,8 +106,8 @@ function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: num
  * over their installations and opt-in to whatever templates they want to have/support.
  */
 export class TemplateRegistry {
-  public pages: Map<string, new (page: PageRecord, editMode: boolean) => Page> = new Map()
-  public components: Map<string, new (component: ComponentData, path: string, parent: Component, editMode: boolean) => Component> = new Map()
+  public pages: Map<string, new (page: PageRecord, editMode: boolean, extension: string) => Page> = new Map()
+  public components: Map<string, new (component: ComponentData, path: string, parent: Component, editMode: boolean, extension: string) => Component> = new Map()
   public cssblocks: Map<string, RegistryCSSBlock> = new Map()
   public jsblocks: Map<string, RegistryJSBlock> = new Map()
   public files: Map<string, RegistryFile> = new Map()

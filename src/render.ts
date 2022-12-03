@@ -74,7 +74,7 @@ function renderVariation (extension: string, component: Component) {
 
 // recursive helper function for transformation of plain-object componentData
 // into a hydrated instance of the Component class (or a descendent class like Page)
-function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, recursiveInherit?: boolean) {
+function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, extension: string, recursiveInherit?: boolean) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
   if (!ComponentType) {
@@ -83,14 +83,14 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   }
 
   // hydrate the page data into full objects
-  const component = new ComponentType(componentData, path, parent, editMode)
+  const component = new ComponentType(componentData, path, parent, editMode, extension)
   component.inheritedFrom = inheritedFrom
   if (recursiveInherit) component.editBar = () => ''
   if (inheritedFrom) component.newBar = () => ''
   for (const key of Object.keys(componentData.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < componentData.areas![key].length; i++) {
-      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, !!inheritedFrom)
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, extension, !!inheritedFrom)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
@@ -103,17 +103,17 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 // API, and the output is a Page object, containing many Component objects, all
 // of which are ready with the properties and methods defined in the Component class,
 // that support the rendering process
-function hydratePage (pageData: PageRecord, editMode: boolean) {
+function hydratePage (pageData: PageRecord, editMode: boolean, extension: string) {
   // find the page implementation in the registry
   const PageType = templateRegistry.pages.get(pageData.data.templateKey)
   if (!PageType) throw new Error('Unable to render page. Missing template implementation.')
 
   // hydrate the page data into full objects
-  const page = new PageType(pageData, editMode)
+  const page = new PageType(pageData, editMode, extension)
   for (const key of Object.keys(pageData.data.areas ?? {})) {
     const areaComponents: Component[] = []
     for (let i = 0; i < pageData.data.areas![key].length; i++) {
-      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined)
+      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined, extension)
       if (child) areaComponents.push(child)
     }
     page.areas.set(key, areaComponents)
@@ -135,7 +135,7 @@ function editModeIncludes () {
  */
 export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
   void res.type(mimeTypes[extension] ?? 'text/plain')
-  const pageComponent = hydratePage(page, editMode)
+  const pageComponent = hydratePage(page, editMode, extension)
   pageComponent.addHeader = (key: string, value: string | undefined) => {
     if (value != null) void res.header(key, value)
     else void res.removeHeader(key)
@@ -157,14 +157,14 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       c.registerInherited = (area, components, fromPageId, mode = 'top') => {
         if (components?.length) registered.push({ area, components, mode, fromPageId })
       }
-      c.fetched = await c.fetch()
+      c.fetched = c.shouldFetchVariation(extension) ? await c.fetch() : {}
       const extraComponents: Component[] = []
       for (const entry of registered) {
         if (!c.areas.has(entry.area) || entry.mode === 'replace') c.areas.set(entry.area, [])
         const fromPageId = Array.isArray(entry.fromPageId) ? entry.fromPageId : Array(entry.components.length).fill(entry.fromPageId)
         for (let i = 0; i < entry.components.length; i++) {
           const cData = entry.components[i]
-          const hydrated = hydrateComponent(cData, c, 'inherited', editMode, fromPageId[i])
+          const hydrated = hydrateComponent(cData, c, 'inherited', editMode, fromPageId[i], extension)
           if (hydrated) {
             const hydratedPlusSubComponents = collectComponents(hydrated)
             for (const c of hydratedPlusSubComponents) {
@@ -187,13 +187,13 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
     }
   }))
 
-  // if this is a variation, go ahead and render after the fetch phase
+  // execute the context phase
+  await executeSetContext(pageComponent, { headerLevel: 1 })
+
+  // render variations and skip the regular render phase
   if (extension !== 'html') {
     return renderVariation(extension, pageComponent)
   }
-
-  // execute the context phase
-  await executeSetContext(pageComponent, { headerLevel: 1 })
 
   // provide content for the <head> element and give it to the page component
   const fontfiles = new Map<string, { href: string, format: string }>()
