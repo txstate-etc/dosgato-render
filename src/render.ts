@@ -136,6 +136,7 @@ function editModeIncludes () {
 export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
   void res.type(mimeTypes[extension] ?? 'text/plain')
   const pageComponent = hydratePage(page, editMode, extension)
+  pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname
   pageComponent.addHeader = (key: string, value: string | undefined) => {
     if (value != null) void res.header(key, value)
     else void res.removeHeader(key)

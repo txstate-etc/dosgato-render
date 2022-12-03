@@ -1,6 +1,6 @@
 {
   "name": "@dosgato/render",
-  "version": "0.0.44",
+  "version": "0.0.45",
   "description": "Library providing the rendering server for DosGato CMS.",
   "type": "module",
   "exports": {
@@ -15,7 +15,7 @@
     "start": "node --no-warnings --enable-source-maps --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
-    "@dosgato/templating": ">=0.0.99",
+    "@dosgato/templating": ">=0.0.100",
     "@fastify/cookie": "^8.3.0",
     "cheerio": "^1.0.0-rc.12",
     "dataloader-factory": "^4.4.1",
