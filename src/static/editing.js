@@ -212,7 +212,7 @@ stopLinks()
 function randomid (length = 10) {
   return String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).slice(2, length + 1)
 }
-const currentUrl = document.currentScript.getAttribute('src')
+const currentUrl = import.meta.url
 const currentVersion = currentUrl.match(/\/.editing\/(.*?)\/edit\.js/)[1]
 const editingCss = currentUrl.replace(/\.js$/, '.css')
 const addIcon = '<svg version="2.0" viewbox="0 0 256 256"><title>Add</title><path fill="currentColor" d="M222 128a6 6 0 0 1-6 6h-82v82a6 6 0 0 1-12 0v-82H40a6 6 0 0 1 0-12h82V40a6 6 0 0 1 12 0v82h82a6 6 0 0 1 6 6Z"/></svg>'
