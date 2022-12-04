@@ -205,7 +205,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   for (const { block } of normalCssBlocks) {
     for (const fontfile of block.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
   }
-  pageComponent.headContent = [
+  pageComponent.headContent = (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>` : '') + [
     ...normalCssBlocks.map(({ name, block }) =>
       `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block.async ? ' media="print" onload="this.media=all"' : ''}>`
     ),
@@ -213,8 +213,8 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       `<link rel="preload" as="font" href="${ff.href}" type="${ff.format}" crossorigin="anonymous">`
     ),
     ...Array.from(new Set(componentsIncludingInherited.flatMap(r => r.jsBlocks()))).map(name => ({ name, block: templateRegistry.jsblocks.get(name) })).filter(({ name, block }) => block != null).map(({ name, block }) =>
-      `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ' defer'}></script>`)
-  ].join('\n') + (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>` : '')
+      `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ''}${block!.nomodule ? '' : ' type="module"'}></script>`)
+  ].join('\n')
   // execute the render phase
   return renderComponent(pageComponent)
 }
