@@ -125,7 +125,6 @@ export class RenderingServer extends Server {
       '/.edit/:pagetreeId/*',
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
-        if (extension && extension !== 'html') throw new HttpError(400, 'Only the html version of a page can be edited.')
         const token = await resignToken(getToken(req), undefined, path)
         const api = new this.APIClient<RenderingAPIClient>(false, token, req)
         api.context = 'edit'
