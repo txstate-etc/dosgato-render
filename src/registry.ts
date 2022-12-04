@@ -145,7 +145,7 @@ export class TemplateRegistry {
         const finalBlock = block as RegistryJSBlock
         this.jsblocks.set(key, finalBlock)
         const js = finalBlock.js ?? readFileSync(finalBlock.path!, 'utf8')
-        promises.push(transform(js, { minify: true, sourcemap: true, sourcefile: `${key}.js`, legalComments: 'none' }).then(minified => {
+        promises.push(transform(js, { minify: true, sourcemap: true, sourcefile: `${key}.js`, legalComments: 'none', format: finalBlock.nomodule ? undefined : 'esm' }).then(minified => {
           finalBlock.js = minified.code
           finalBlock.map = minified.map
           finalBlock.size = new Blob([finalBlock.js]).size
