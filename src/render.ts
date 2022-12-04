@@ -122,7 +122,7 @@ function hydratePage (pageData: PageRecord, editMode: boolean, extension: string
 }
 
 function editModeIncludes () {
-  return `<script src="/.editing/${resourceversion}/edit.js" defer></script><link rel="stylesheet" href="/.editing/${resourceversion}/edit.css">`
+  return `<script src="/.editing/${resourceversion}/edit.js" type="module"></script><link rel="stylesheet" href="/.editing/${resourceversion}/edit.css">`
 }
 
 /**
