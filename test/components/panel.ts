@@ -12,6 +12,7 @@ export class PanelTemplate extends Component<PanelData> {
       targetsEditBars: true,
       css: `
         .dg-panel-bar { border-color: green; }
+        .dg-panel-bar.selected { background-color: green; color: white; }
       `
     }],
     ['panel', {
