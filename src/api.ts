@@ -395,10 +395,10 @@ export class RenderingAPIClient implements APIClient {
     return resizes.map(r => `${this.resizeHref(r, asset)} ${r.width}w`).join(', ')
   }
 
-  async getImgAttributes (link: string | AssetLink, absolute?: boolean | undefined): Promise<PictureAttributes> {
+  async getImgAttributes (link: string | AssetLink | undefined, absolute?: boolean | undefined): Promise<PictureAttributes | undefined> {
+    if (!link) return undefined
     const asset = await this.getAssetByLink(link)
-    if (!asset) throw new Error('Targeted image no longer exists.')
-    if (!asset.box) throw new Error('Targeted asset is not an image.')
+    if (!asset?.box) return undefined
     const resizesByMime = groupby(asset.resizes, 'mime')
     return {
       src: this.assetHref(asset),
