@@ -269,7 +269,7 @@ export class RenderingAPIClient implements APIClient {
   sitePrefix?: string
   context: 'live' | 'preview' | 'edit' = 'live'
   contextOrigin: string
-  resolvedLinks = new Map<string, string>()
+  resolvedLinks = new Map<string, string | undefined>()
   static contextPath = process.env.CONTEXT_PATH ?? ''
 
   constructor (public published: boolean, token?: string, req?: FastifyRequest) {
@@ -333,19 +333,20 @@ export class RenderingAPIClient implements APIClient {
     return roots
   }
 
-  async resolveLink (lnk: string | LinkDefinition, opts?: { absolute?: boolean, extension?: string }) {
+  async resolveLink (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }) {
+    if (!lnk) return undefined
     const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
-    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return 'brokenlink'
+    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return undefined
     if (link.type === 'url') return link.url // TODO: relative URLs or assume absolute?
     if (link.type === 'page') {
       const target = await this.dlf.get(pageByLinkWithoutDataLoader).load(link)
-      if (!target) return 'brokenlink'
+      if (!target) return undefined
       return this.getHref(target, opts)
     } else if (link.type === 'asset') {
       const target = await this.getAssetByLink(link)
       return this.assetHref(target)
     }
-    return 'brokenlink'
+    return undefined
   }
 
   getHref (page: { path: string, site: SiteInfo }, opts?: { absolute?: boolean, extension?: string }) {
@@ -374,7 +375,7 @@ export class RenderingAPIClient implements APIClient {
 
   async scanForLinks (text: string) {
     const links = extractLinksFromText(text)
-    const resolvedLinks = await Promise.all(links.map(async l => await this.resolveLink(l)))
+    const resolvedLinks = (await Promise.all(links.map(async l => await this.resolveLink(l))))
     for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
   }
 
