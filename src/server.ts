@@ -70,7 +70,8 @@ export class RenderingServer extends Server {
     config ??= {}
     config.checkOrigin = (req: FastifyRequest) => {
       if (existingCheckOrigin?.(req)) return true
-      if (req.routerPath === '/.resources/:version/:file' || req.routerPath === '/.editing/:version/edit.js' || req.routerPath === '/.edit/:pagetreeId/*') {
+      if (req.routerPath === '/.editing/:version/edit.js' || req.routerPath === '/.edit/:pagetreeId/*') return true
+      if (req.routerPath === '/.resources/:version/:file') {
         const file = templateRegistry.files.get((req.params as any).file)
         return req.headers.origin === 'null' && !!file?.mime.startsWith('font/')
       }
