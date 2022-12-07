@@ -216,12 +216,11 @@ const pageByPathLoader = new PrimaryKeyLoader({
   idLoader: pageByIdLoader
 })
 pageByIdLoader.addIdLoader(pageByPathLoader)
-const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omit<PageRecord<PageData>, 'data'>>({
+const pageByLinkWithoutData = new BestMatchLoader<PageLinkWithContext, Omit<PageRecord<PageData>, 'data'>>({
   fetch: async (links, api: RenderingAPIClient) => {
-    if (api.pagetreeId) {
-      for (const link of links) link.context = { pagetreeId: api.pagetreeId }
-    }
-    const { pages } = await api.query(PAGE_QUERY_NO_DATA, { links })
+    if (api.pagetreeId) for (const link of links) link.context = { pagetreeId: api.pagetreeId }
+    const pageLinks = links.map(l => pick(l, 'siteId', 'linkId', 'path', 'context'))
+    const { pages } = await api.query(PAGE_QUERY_NO_DATA, { links: pageLinks })
     return pages.map(processPageRecord)
   },
   scoreMatch: (link, page) => {
@@ -233,10 +232,9 @@ const pageByLinkWithoutDataLoader = new BestMatchLoader<PageLinkWithContext, Omi
 })
 const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
-    if (api.pagetreeId) {
-      for (const link of links) link.context = { pagetreeId: api.pagetreeId }
-    }
-    const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links, published: api.published })
+    if (api.pagetreeId) for (const link of links) link.context = { pagetreeId: api.pagetreeId }
+    const pageLinks = links.map(l => pick(l, 'siteId', 'linkId', 'path', 'context'))
+    const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published })
     return pages.map(processPageRecord)
   },
   scoreMatch: (link, page) => {
@@ -339,7 +337,7 @@ export class RenderingAPIClient implements APIClient {
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return undefined
     if (link.type === 'url') return link.url // TODO: relative URLs or assume absolute?
     if (link.type === 'page') {
-      const target = await this.dlf.get(pageByLinkWithoutDataLoader).load(link)
+      const target = await this.dlf.get(pageByLinkWithoutData).load(link)
       if (!target) return undefined
       return this.getHref(target, opts)
     } else if (link.type === 'asset') {

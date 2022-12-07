@@ -1,6 +1,6 @@
 {
   "name": "@dosgato/render",
-  "version": "0.0.50",
+  "version": "0.0.51",
   "description": "Library providing the rendering server for DosGato CMS.",
   "type": "module",
   "exports": {
