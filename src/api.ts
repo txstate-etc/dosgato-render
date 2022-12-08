@@ -443,7 +443,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async #query <T = any> (token: string, query: string, variables?: any) {
-    const resp = await fetch(process.env.DOSGATO_API_URL!, {
+    const resp = await fetch(`${process.env.DOSGATO_API_BASE!}/graphql`, {
       method: 'POST',
       mode: 'no-cors',
       cache: 'no-cache',
