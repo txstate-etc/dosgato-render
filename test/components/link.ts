@@ -6,7 +6,7 @@ export interface LinkData extends ComponentData {
   text: string
 }
 
-export class LinkTemplate extends Component<LinkData, { link: string }> {
+export class LinkTemplate extends Component<LinkData, { link?: string }> {
   static templateKey = 'keyc1'
   static cssBlocks = new Map([
     ['linktemplate', {
