@@ -1,12 +1,10 @@
-import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent, NewBarOpts, replaceLinksInText, ContextBase } from '@dosgato/templating'
-import cheerio from 'cheerio'
+import { Component, PageRecord, ComponentData, EditBarOpts, RenderedComponent, NewBarOpts, ContextBase } from '@dosgato/templating'
 import { FastifyRequest, FastifyReply } from 'fastify'
-import { parseDocument } from 'htmlparser2'
 import { ParsedUrlQuery } from 'querystring'
 import { RegistryCSSBlock, templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 import { RenderingAPIClient } from './api.js'
-import { randomid, htmlEncode, clone, isNotBlank } from 'txstate-utils'
+import { htmlEncode, clone } from 'txstate-utils'
 import { mimeTypes } from './mimetypes.js'
 
 // recursive helper function to traverse a hydrated page and return a flat array
