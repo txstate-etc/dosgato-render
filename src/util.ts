@@ -11,9 +11,8 @@ export function parsePath (path: string) {
   }
 }
 
-/** This function removes the site name from the path since it will be replaced by the launched URL */
 export function resolvePath (prefix: string | undefined, pagePath: string) {
-  const [sitename, ...pagenames] = pagePath.split('/')
+  const [_, ...pagenames] = pagePath.split('/')
   prefix = prefix?.replace(/\/+$/, '')
   return [prefix ?? '', ...pagenames].join('/')
 }

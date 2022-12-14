@@ -7,7 +7,7 @@ import { jwtSignKey, resolvePath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
 
-const SITE_INFO = 'site { id name launched url { path, prefix } }'
+const SITE_INFO = 'site { id name launched url { path prefix } }'
 
 const PAGE_INFO = `
 id
@@ -319,7 +319,7 @@ export class RenderingAPIClient implements APIClient {
     const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
       ...p,
       title: isBlank(p.title) ? titleCase(p.name) : p.title,
-      href: this.getHref(p, { absolute: opts!.absolute }),
+      href: this.getHref(p, { absolute: opts!.absolute }) ?? '',
       children: []
     }))
     const pagesById = keyby(pagesForNavigation, 'id')
@@ -349,21 +349,16 @@ export class RenderingAPIClient implements APIClient {
 
   getHref (page: { path: string, site: SiteInfo }, opts?: { absolute?: boolean, extension?: string }) {
     let ret = ''
-    if (opts?.absolute || page.site.name !== this.sitename) {
+    if (this.context === 'live' && (opts?.absolute || page.site.name !== this.sitename)) {
       // absolute launched url or fail if not launched
-      ret = resolvePath(page.site.url?.prefix, page.path)
-    } else if (opts?.absolute && this.context === 'preview') {
+      if (isBlank(page.site.url?.prefix)) return undefined
+      ret = resolvePath(page.site.url?.prefix, page.path.replace(/^\/[^/]+/, ''))
+    } else if (opts?.absolute && ['preview', 'edit'].includes(this.context)) {
       // absolute published preview url
       ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/${this.published ? 'public' : 'latest'}`, page.path)
-    } else if (opts?.absolute && this.context === 'edit') {
-      // absolute edit url
-      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, page.path)
     } else if (this.context === 'live') {
       // site-relative launched url
-      ret = resolvePath(page.site.url?.path, page.path)
-    } else if (this.context === 'edit') {
-      // site-relative edit url
-      ret = resolvePath(RenderingAPIClient.contextPath + `/.edit/${this.pagetreeId!}`, page.path)
+      ret = resolvePath(page.site.url?.path, page.path.replace(/^\/[^/]+/, ''))
     } else {
       // site-relative preview
       ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/${this.published ? 'public' : 'latest'}`, page.path)
