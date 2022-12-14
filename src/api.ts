@@ -385,6 +385,10 @@ export class RenderingAPIClient implements APIClient {
     return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/resize/${resize.id}/${asset.filename}`
   }
 
+  assetHrefByWidth (asset: FetchedAsset, width: number) {
+    return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/${width}/${asset.filename}`
+  }
+
   srcSet (resizes: FetchedAsset['resizes'], asset: FetchedAsset) {
     return resizes.map(r => `${this.resizeHref(r, asset)} ${r.width}w`).join(', ')
   }
@@ -394,11 +398,15 @@ export class RenderingAPIClient implements APIClient {
     const asset = await this.getAssetByLink(link)
     if (!asset?.box) return undefined
     const resizesByMime = groupby(asset.resizes, 'mime')
+    const widths = new Set<number>([asset.box.width])
+    for (const resize of asset.resizes) {
+      widths.add(resize.width)
+    }
     return {
       src: this.assetHref(asset),
       width: asset.box.width,
       height: asset.box.height,
-      srcset: this.srcSet(resizesByMime[asset.mime], asset),
+      srcset: Array.from(widths).map(w => `${this.assetHrefByWidth(asset, w)} ${w}w`).join(', '),
       widths: asset.resizes.filter(r => r.mime === asset.mime).map(r => ({ width: r.width, src: this.resizeHref(r, asset) })),
       alternates: Object.keys(resizesByMime).filter(m => m !== asset.mime).map(m => ({ mime: m, srcset: this.srcSet(resizesByMime[m], asset), widths: resizesByMime[m].map(r => ({ width: r.width, src: this.resizeHref(r, asset) })) }))
     }
