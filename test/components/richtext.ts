@@ -22,6 +22,9 @@ export class RichTextTemplate extends Component<RichTextData> {
   ])
 
   static scssIncludes = new Map([
+    ['boxshadow', {
+      path: getFilePath(import.meta.url, 'boxshadow.scss')
+    }],
     ['sr-only', {
       path: getFilePath(import.meta.url, 'sr-only.scss')
     }],

@@ -55,8 +55,7 @@ function versionWarning <T extends JSBlock | CSSBlock> (existing: T | undefined,
 
 class SimpleImporter {
   canonicalize (url: string, options: { fromImport: boolean }) {
-    if (templateRegistry.sassincludes.has(url)) return new URL(`http://dosgato-mixins.org/${url}`)
-    return null
+    return new URL(url, 'http://dosgato-mixins.org/')
   }
 
   load (canonicalUrl: URL) {
