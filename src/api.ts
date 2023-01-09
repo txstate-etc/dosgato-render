@@ -300,26 +300,28 @@ export class RenderingAPIClient implements APIClient {
     return page
   }
 
-  async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean }) {
+  async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean }) {
     opts ??= {}
     if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
-    const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
+    const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, publishedAt: string | undefined, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
       query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
         pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath }) {
           id
           name
           title
           path
+          publishedAt
           ${SITE_INFO}
           parent { id }
           extra: dataByPath (paths: $dataPaths, published: $published)
         }
       }
-    `, { pagetreeId: this.pagetreeId, depth: opts.depth, dataPaths: opts.extra ?? [], published: this.published, beneath: toArray(opts.beneath) })
+    `, { pagetreeId: this.pagetreeId, depth: opts.depth, dataPaths: opts.extra ?? [], published: !!opts.published || this.published, beneath: toArray(opts.beneath) })
     const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
       ...p,
       title: isBlank(p.title) ? titleCase(p.name) : p.title,
       href: this.getHref(p, { absolute: opts!.absolute }) ?? '',
+      publishedAt: p.publishedAt ? new Date(p.publishedAt) : undefined,
       children: []
     }))
     const pagesById = keyby(pagesForNavigation, 'id')

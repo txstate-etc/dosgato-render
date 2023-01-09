@@ -137,7 +137,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname
   pageComponent.addHeader = (key: string, value: string | undefined) => {
     if (value != null) void res.header(key, value)
-    else void res.removeHeader(key)
+    else res.removeHeader(key)
   }
   const componentsIncludingPage = collectComponents(pageComponent)
 
