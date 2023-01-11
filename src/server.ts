@@ -72,8 +72,7 @@ export class RenderingServer extends Server {
       if (existingCheckOrigin?.(req)) return true
       if (req.routerPath === '/.editing/:version/edit.js' || req.routerPath === '/.edit/:pagetreeId/*') return true
       if (req.routerPath === '/.resources/:version/:file') {
-        const file = templateRegistry.files.get((req.params as any).file)
-        return req.headers.origin === 'null' && !!file?.mime.startsWith('font/')
+        return req.headers.origin === 'null'
       }
       return false
     }
@@ -261,7 +260,7 @@ export class RenderingServer extends Server {
       ...(opts?.providers ?? []).map(async p => await this.addProvider(p)),
       ...(opts?.templates ?? []).map(async t => await this.addTemplate(t))
     ])
-    return await super.start(opts?.port)
+    await super.start(opts?.port)
   }
 
   async addTemplate (template: any) { await templateRegistry.addTemplate(template) }
