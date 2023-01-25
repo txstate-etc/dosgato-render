@@ -1,5 +1,5 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo, DataData } from '@dosgato/templating'
-import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
+import { APIClient, AssetFolderLink, AssetLink, AssetRecord, DataData, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo } from '@dosgato/templating'
+import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
 import { Cache, ensureString, groupby, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
@@ -54,7 +54,7 @@ const anonToken = await new SignJWT({ sub: 'anonymous' })
   .setProtectedHeader({ alg: 'HS256' })
   .sign(jwtSignKey)
 
-function matchAssetPath (link: AssetLink, asset: { path: string, site: { id: string, name: string } }) {
+function matchAssetPath (link: AssetLink | AssetFolderLink, asset: { path: string, site: { id: string, name: string } }) {
   if (link.path === asset.path) return true
   return link.siteId && link.siteId === asset.site.id && link.path?.split('/').slice(2).join('/') === asset.path.split('/').slice(2).join('/')
 }
@@ -67,13 +67,15 @@ export interface FetchedAsset {
   extension: string
   filename: string
   mime: string
+  size: number
+  data: any
   resizes: {
     id: string
     width: number
     height: number
     mime: string
   }[]
-  box: {
+  box?: {
     width: number
     height: number
   }
@@ -83,14 +85,42 @@ export interface FetchedAsset {
   }
 }
 
+const assetDetails = 'id path checksum name extension filename mime size data resizes { id width height mime } box { width height } site { id name }'
+
 const assetByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetLink[], api: RenderingAPIClient) => {
     const { assets } = await api.query<{ assets: FetchedAsset[] }>(
-      'query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { id path checksum name extension filename mime resizes { id width height mime } box { width height } site { id name }  } }'
+      `query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { ${assetDetails} } }`
       , { links: links.map(l => pick(l, 'id', 'path', 'checksum', 'siteId')) })
     return assets
   },
   scoreMatch: (link, asset) => asset.id === link.id ? 3 : (matchAssetPath(link, asset) ? 2 : (asset.checksum === link.checksum ? 1 : 0))
+})
+
+const assetsByFolderPathLoader = new ManyJoinedLoader({
+  fetch: async (paths: string[], filters: { recursive?: boolean }, api: RenderingAPIClient) => {
+    const query = filters.recursive
+      ? `query getAssetByLink ($paths: [UrlSafePath!]!) { assets (filter: { beneath: $paths }) { ${assetDetails} } }`
+      : `query getAssetByLink ($paths: [UrlSafePath!]!) { assets (filter: { parentPaths: $paths }) { ${assetDetails} } }`
+    const { assets } = await api.query<{ assets: FetchedAsset[] }>(
+      query
+      , { paths })
+    if (filters.recursive) return paths.flatMap(path => assets.filter(a => a.path.startsWith(path)).map(a => ({ key: path, value: a })))
+    else {
+      const assetsPlusFolderPath = assets.map(a => ({ ...a, folderPath: a.path.split('/').slice(0, -1).join('/') }))
+      return paths.flatMap(path => assetsPlusFolderPath.filter(a => a.folderPath === path).map(a => ({ key: path, value: a })))
+    }
+  }
+})
+
+const assetfoldersByLinkLoader = new BestMatchLoader({
+  fetch: async (links: AssetFolderLink[], api: RenderingAPIClient) => {
+    const { assetfolders } = await api.query<{ assetfolders: { id: string, path: string, site: { id: string, name: string } }[] }>(
+      'query getAssetsByFolderLink ($links: [AssetFolderLinkInput!]!) { assetfolders (filter: { links: $links }) { id path site { id name } } }'
+      , { links: links.map(l => pick(l, 'id', 'path', 'siteId')) })
+    return assetfolders
+  },
+  scoreMatch: (link, folder) => folder.id === link.id ? 2 : (matchAssetPath(link, folder) ? 1 : 0)
 })
 
 const ANCESTOR_QUERY = `
@@ -463,6 +493,11 @@ export class RenderingAPIClient implements APIClient {
   async getImgAttributes (link: string | AssetLink | undefined, absolute?: boolean | undefined): Promise<PictureAttributes | undefined> {
     if (!link) return undefined
     const asset = await this.getAssetByLink(link)
+    if (!asset) return undefined
+    return this.getImgAttributesFromAsset(asset)
+  }
+
+  getImgAttributesFromAsset (asset: FetchedAsset | undefined) {
     if (!asset?.box) return undefined
     const resizesByMime = groupby(asset.resizes, 'mime')
     const widths = new Set<number>([asset.box.width])
@@ -511,6 +546,28 @@ export class RenderingAPIClient implements APIClient {
   async getAssetByLink (link: AssetLink | string) {
     if (typeof link === 'string') link = JSON.parse(link) as AssetLink
     return await this.dlf.get(assetByLinkLoader).load(link)
+  }
+
+  fetchedAssetToAssetRecord (asset: FetchedAsset) {
+    return {
+      ...asset,
+      downloadLink: '',
+      meta: asset.data,
+      image: this.getImgAttributesFromAsset(asset)
+    }
+  }
+
+  async getAssetsByLink (link: AssetLink | AssetFolderLink | string, recursive?: boolean): Promise<AssetRecord[]> {
+    if (typeof link === 'string') link = JSON.parse(link) as AssetLink | AssetFolderLink
+    if (link.type === 'asset') {
+      const asset = await this.dlf.get(assetByLinkLoader).load(link)
+      if (!asset) return [] as AssetRecord[]
+      return [this.fetchedAssetToAssetRecord(asset)]
+    }
+    const folder = await this.dlf.get(assetfoldersByLinkLoader).load(link)
+    if (!folder) return [] as AssetRecord[]
+    const assets = await this.dlf.get(assetsByFolderPathLoader, { recursive }).load(folder.path)
+    return assets.map(a => this.fetchedAssetToAssetRecord(a))
   }
 
   async identifyToken (token: string) {
