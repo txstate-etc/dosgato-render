@@ -1,4 +1,4 @@
-import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo } from '@dosgato/templating'
+import { APIClient, AssetLink, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo, DataData } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
@@ -259,6 +259,71 @@ const templateCache = new Cache(async (_, api: RenderingAPIClient) => {
   return keyby(templates, 'key')
 })
 
+export interface FetchedData {
+  id: string
+  name: string
+  data: DataData
+  path: string
+  site?: {
+    id: string
+    name: string
+  }
+  template: {
+    key: string
+  }
+}
+
+const dataByDataLinkLoader = new BestMatchLoader({
+  fetch: async (links: DataLink[], api: RenderingAPIClient) => {
+    const { data } = await api.query<{ data: FetchedData[] }>(
+      'query getDataByLink ($links: [DataLinkInput!]!) { data (filter: { links: $links }) { id name data path site { id name } template { key } } }'
+      , { links: links.map(l => pick(l, 'id', 'siteId', 'path')) })
+    return data
+  },
+  scoreMatch: (link, data) => {
+    if (link.templateKey !== data.template.key) return 0
+    if (link.siteId !== data.site?.id) return 0
+    if (link.id === data.id) return 2
+    if (link.path === data.path) return 1
+    return 0
+  }
+})
+
+export interface FetchedDataFolder {
+  id: string
+  name: string
+  path: string
+  template: {
+    key: string
+  }
+  site?: {
+    id: string
+    name: string
+  }
+  data: {
+    id: string
+    name: string
+    data: DataData
+  }[]
+}
+
+const dataFolderByFolderLinkLoader = new BestMatchLoader({
+  fetch: async (links: DataFolderLink[], api: RenderingAPIClient) => {
+    const { datafolders } = await api.query<{ datafolders: FetchedDataFolder[] }>(
+      'query getDataFolderByLink ($links: [DataFolderLinkInput!]!) { datafolders (filter: { links: $links }){ id name path template { key } site { id name } data { id name data } } }'
+      , { links: links.map(l => pick(l, 'id', 'siteId', 'path')) })
+    return datafolders
+  },
+  scoreMatch: (link, folder) => {
+    // TODO: add template key to DataFolderLink.
+    // if (link.templateKey !== folder.template.key) return 0
+    if (link.siteId !== folder.site?.id) return 0
+    if (link.id === folder.id) return 2
+    if (link.path === folder.path) return 1
+    return 0
+  }
+})
+
 export class RenderingAPIClient implements APIClient {
   dlf = new DataLoaderFactory(this)
   token: string
@@ -414,8 +479,19 @@ export class RenderingAPIClient implements APIClient {
     }
   }
 
-  async getDataByLink (link: string | DataLink | DataFolderLink) {
-    return [] as any[] // TODO
+  async getDataByLink (link: string | DataLink | DataFolderLink): Promise<DataData[]> {
+    if (typeof link === 'string') {
+      const parsed = JSON.parse(link)
+      if (parsed.type === 'data') link = parsed as DataLink
+      else link = parsed as DataFolderLink
+    }
+    if (link.type === 'data') {
+      const fetchedData = await this.dlf.get(dataByDataLinkLoader).load(link)
+      return fetchedData ? [fetchedData.data] : []
+    } else {
+      const fetchedFolder = await this.dlf.get(dataFolderByFolderLinkLoader).load(link)
+      return fetchedFolder ? fetchedFolder.data.map(d => d.data) : []
+    }
   }
 
   async getDataByPath (templateKey: string, path: string) {
