@@ -551,7 +551,7 @@ export class RenderingAPIClient implements APIClient {
   fetchedAssetToAssetRecord (asset: FetchedAsset) {
     return {
       ...asset,
-      downloadLink: '',
+      downloadLink: this.assetHref(asset),
       meta: asset.data,
       image: this.getImgAttributesFromAsset(asset)
     }
