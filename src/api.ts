@@ -1,5 +1,5 @@
 import { APIClient, AssetFolderLink, AssetLink, AssetRecord, DataData, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo } from '@dosgato/templating'
-import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, PrimaryKeyLoader } from 'dataloader-factory'
+import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
 import { Cache, ensureString, groupby, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
@@ -303,6 +303,17 @@ export interface FetchedData {
   }
 }
 
+const dataByPathLoader = new OneToManyLoader({
+  fetch: async (paths: string[], api: RenderingAPIClient) => {
+    const { data } = await api.query<{ data: FetchedData[] }>(
+      'query getDataByPath ($paths: [UrlSafePath!]!) { data (filter: { paths: $paths}) { id name data path site { id name } template { key } } }'
+      , { paths }
+    )
+    return data
+  },
+  matchKey: (path: string, d: FetchedData) => d.path.startsWith(path)
+})
+
 const dataByDataLinkLoader = new BestMatchLoader({
   fetch: async (links: DataLink[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
@@ -530,7 +541,8 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async getDataByPath (templateKey: string, path: string) {
-    return [] as any[] // TODO
+    const data = await this.dlf.get(dataByPathLoader, this).load(path)
+    return data.filter(d => d.template.key === templateKey).map(d => d.data)
   }
 
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date) {
