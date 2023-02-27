@@ -264,7 +264,7 @@ const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
     if (api.pagetreeId) for (const link of links) link.context = { pagetreeId: api.pagetreeId }
     const pageLinks = links.map(l => pick(l, 'siteId', 'linkId', 'path', 'context'))
-    const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published })
+    const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published, schemaversion })
     return pages.map(processPageRecord)
   },
   scoreMatch: (link, page) => {
@@ -403,7 +403,7 @@ export class RenderingAPIClient implements APIClient {
     (path && await this.dlf.get(pageByPathLoader).load(path)) ??
     (link && await this.dlf.get(pageByLinkLoader).load(link as PageLink))
     if (!page) return undefined
-    return page
+    return { ...page, title: isBlank(page.data.title) ? titleCase(page.name) : page.data.title }
   }
 
   async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean }) {
