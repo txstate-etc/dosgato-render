@@ -91,7 +91,7 @@ const assetByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetLink[], api: RenderingAPIClient) => {
     const { assets } = await api.query<{ assets: FetchedAsset[] }>(
       `query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { ${assetDetails} } }`
-      , { links: links.map(l => pick(l, 'id', 'path', 'checksum', 'siteId')) })
+      , { links: links.map(l => ({ ...pick(l, 'path', 'checksum', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
     return assets
   },
   scoreMatch: (link, asset) => asset.id === link.id ? 3 : (matchAssetPath(link, asset) ? 2 : (asset.checksum === link.checksum ? 1 : 0))
@@ -117,7 +117,7 @@ const assetfoldersByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetFolderLink[], api: RenderingAPIClient) => {
     const { assetfolders } = await api.query<{ assetfolders: { id: string, path: string, site: { id: string, name: string } }[] }>(
       'query getAssetsByFolderLink ($links: [AssetFolderLinkInput!]!) { assetfolders (filter: { links: $links }) { id path site { id name } } }'
-      , { links: links.map(l => pick(l, 'id', 'path', 'siteId')) })
+      , { links: links.map(l => ({ ...pick(l, 'path', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
     return assetfolders
   },
   scoreMatch: (link, folder) => folder.id === link.id ? 2 : (matchAssetPath(link, folder) ? 1 : 0)
