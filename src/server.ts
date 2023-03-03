@@ -5,6 +5,7 @@ import { FastifyRequest } from 'fastify'
 import Server, { FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { fileTypeFromFile } from 'file-type'
 import { createReadStream, readFileSync } from 'fs'
+import htmldiff from 'node-htmldiff'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import { Cache, rescue } from 'txstate-utils'
 import { RenderingAPIClient } from './api.js'
@@ -115,6 +116,39 @@ export class RenderingServer extends Server {
         if (!page) throw new HttpError(404)
         api.sitename = page.site.name
         return await renderPage(api, req, res, page, extension, false)
+      }
+    )
+
+    /**
+     * Route for a diff render that compares two versions
+     */
+    this.app.get<{ Params: { '*': string, pagetreeId: string, fromVersion: string, toVersion: string }, Querystring: { token?: string } }>(
+      '/.compare/:pagetreeId/:fromVersion/:toVersion/*',
+      async (req, res) => {
+        const { path, extension } = parsePath(req.params['*'])
+        const token = await resignToken(getToken(req), false, path)
+        if (req.query.token) {
+          void res.setCookie('dg_token', req.query.token, { httpOnly: true, sameSite: 'strict', path: '/.compare/' })
+          const withoutToken = new URL(req.url, `${req.protocol}://${req.hostname}`)
+          withoutToken.searchParams.delete('token')
+          void res.redirect(302, withoutToken.toString())
+          return
+        }
+        const api = new this.APIClient<RenderingAPIClient>(false, token, req)
+        api.context = 'preview'
+        api.pagetreeId = req.params.pagetreeId
+        const [fromPage, toPage] = await Promise.all([
+          rescue(api.getPreviewPage(req.params.pagetreeId, path, schemaversion, undefined, parseInt(req.params.fromVersion)), { condition: e => e.message.includes('permitted') }),
+          rescue(api.getPreviewPage(req.params.pagetreeId, path, schemaversion, undefined, parseInt(req.params.toVersion)), { condition: e => e.message.includes('permitted') })
+        ])
+        if (!fromPage || !toPage) throw new HttpError(404)
+        api.sitename = fromPage.site.name
+        const [fromHTML, toHTML] = await Promise.all([
+          renderPage(api, req, res, fromPage, extension, false),
+          renderPage(api, req, res, toPage, extension, false)
+        ])
+        const ret = htmldiff(fromHTML, toHTML)
+        return ret.replace(/<\/head>/, '<style>ins { background-color: lightgreen; } del { background-color: pink; }</style></head>')
       }
     )
 
