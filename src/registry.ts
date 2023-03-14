@@ -3,7 +3,6 @@ import cheerio from 'cheerio'
 import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
-import { parseDocument } from 'htmlparser2'
 import mime from 'mime-types'
 import sass from 'sass'
 import semver from 'semver'
@@ -121,8 +120,7 @@ export class TemplateRegistry {
     template.prototype.renderRichText = function (text: string | undefined, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
       if (isBlank(text)) return ''
       text = replaceLinksInText(text, (this.api as unknown as RenderingAPIClient).resolvedLinks)
-      const dom = parseDocument('<!DOCTYPE html><html><body>' + text + '</body></html>')
-      const $ = cheerio.load(dom)
+      const $ = cheerio.load(text)
       const headerLevel = (opts?.headerLevel ?? (this.renderCtx.headerLevel as number) ?? 2) + (isNotBlank(opts?.advanceHeader) ? 1 : 0)
       const allHeaders = $('h1,h2,h3,h4,h5,h6')
       processHeaders(true, headerLevel, headerLevel - 1, 0, allHeaders, headerLevel)
@@ -130,8 +128,7 @@ export class TemplateRegistry {
     }
     template.prototype.renderRawHTML = function (text: string | undefined) {
       if (isBlank(text)) return ''
-      const dom = parseDocument('<!DOCTYPE html><html><body>' + text + '</body></html>')
-      const $ = cheerio.load(dom)
+      const $ = cheerio.load(text)
       return $('body').html() ?? ''
     }
     if (template.prototype instanceof Page && !this.pages.has(template.templateKey)) this.pages.set(template.templateKey, template as any)
