@@ -136,8 +136,13 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   const pageComponent = hydratePage(page, editMode, extension)
   pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname
   pageComponent.addHeader = (key: string, value: string | undefined) => {
-    if (value != null) void res.header(key, value)
-    else res.removeHeader(key)
+    if (value != null) {
+      void res.header(key, value)
+      if (key === 'Location') void res.status(302)
+    } else res.removeHeader(key)
+  }
+  pageComponent.setStatus = (statusCode: number) => {
+    void res.status(statusCode)
   }
   const componentsIncludingPage = collectComponents(pageComponent)
 
