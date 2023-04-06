@@ -33,8 +33,9 @@
   align-items: center;
   font-size: 12px;
   text-transform: uppercase;
-  font-family: sans-serif;
+  font-family: "Roboto", Helvetica, Arial, "Lucide Grande", sans-serif;
   background-color: rgba(235,232,232,0.59);
+  margin-bottom: 12px;
 }
 
 .dg-edit-bar button, .dg-edit-bar-move {

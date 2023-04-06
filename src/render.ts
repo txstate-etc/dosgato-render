@@ -120,7 +120,7 @@ function hydratePage (pageData: PageRecord, editMode: boolean, extension: string
 }
 
 function editModeIncludes () {
-  return `<script src="/.editing/${resourceversion}/edit.js" type="module"></script><link rel="stylesheet" href="/.editing/${resourceversion}/edit.css">`
+  return `<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap" rel="stylesheet"><script src="/.editing/${resourceversion}/edit.js" type="module"></script><link rel="stylesheet" href="/.editing/${resourceversion}/edit.css">`
 }
 
 /**
