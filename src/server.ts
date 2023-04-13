@@ -164,8 +164,8 @@ export class RenderingServer extends Server {
         api.context = 'edit'
         api.pagetreeId = req.params.pagetreeId
         const page = await api.getPreviewPage(req.params.pagetreeId, path, schemaversion)
-        api.sitename = page.site.name
         if (!page) throw new HttpError(404)
+        api.sitename = page.site.name
         return await renderPage(api, req, res, page, extension, true)
       }
     )
