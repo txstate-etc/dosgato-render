@@ -281,7 +281,7 @@ export class RenderingServer extends Server {
       }
       api.sitePrefix = page.site.url.prefix
       api.pagetreeId = page.pagetree.id
-      return await renderPage(anonAPIClient, req, res, page, extension, false)
+      return await renderPage(api, req, res, page, extension, false)
     })
   }
 
