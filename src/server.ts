@@ -280,6 +280,7 @@ export class RenderingServer extends Server {
         else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
       }
       api.sitePrefix = page.site.url.prefix
+      api.pagetreeId = page.pagetree.id
       return await renderPage(anonAPIClient, req, res, page, extension, false)
     })
   }

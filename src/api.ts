@@ -18,6 +18,7 @@ createdAt
 modifiedAt
 publishedAt
 data (schemaversion: $schemaversion, published: $published)
+pagetree { id }
 ${SITE_INFO}
 `
 
@@ -29,6 +30,7 @@ path
 createdAt
 modifiedAt
 publishedAt
+pagetree { id }
 data (schemaversion: $schemaversion, published: $published, version: $version)
 ${SITE_INFO}
 `
@@ -546,7 +548,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date) {
-    const { pages } = await this.#query<{ pages: (PageRecord & { site: { url: { prefix: string } } })[] }>(anonToken, LAUNCHED_PAGE_QUERY, { launchUrl: `http://${hostname}${path}`, schemaversion, published: true })
+    const { pages } = await this.#query<{ pages: (PageRecord & { site: { url: { prefix: string } }, pagetree: { id: string } })[] }>(anonToken, LAUNCHED_PAGE_QUERY, { launchUrl: `http://${hostname}${path}`, schemaversion, published: true })
     return processPageRecord(pages[0])
   }
 
