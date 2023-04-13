@@ -1,3 +1,7 @@
+:host {
+  outline: none;
+}
+
 .dg-edit-bar {
   cursor: pointer;
   border: 2px solid #BC8CBF;
