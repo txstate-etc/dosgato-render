@@ -1,4 +1,4 @@
-:host {
+:host(:focus) {
   outline: none;
 }
 
