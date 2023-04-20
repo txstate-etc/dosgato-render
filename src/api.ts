@@ -485,7 +485,7 @@ export class RenderingAPIClient implements APIClient {
   assetHref (asset: FetchedAsset | undefined) {
     if (!asset) return 'brokenlink'
     if (asset.box) {
-      return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/2000/${encodeURIComponent(asset.filename)}`
+      return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/2000/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
     } else {
       return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/${encodeURIComponent(asset.filename)}`
     }
@@ -496,7 +496,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   assetHrefByWidth (asset: FetchedAsset, width: number) {
-    return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/${width}/${encodeURIComponent(asset.filename)}`
+    return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/${width}/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
   }
 
   srcSet (resizes: FetchedAsset['resizes'], asset: FetchedAsset) {
