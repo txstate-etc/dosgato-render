@@ -248,10 +248,9 @@ const pageByPathLoader = new PrimaryKeyLoader({
   idLoader: pageByIdLoader
 })
 pageByIdLoader.addIdLoader(pageByPathLoader)
-const pageByLinkWithoutData = new BestMatchLoader<PageLinkWithContext, Omit<PageRecord<PageData>, 'data'>>({
+const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord<PageData>, 'data'>>({
   fetch: async (links, api: RenderingAPIClient) => {
-    if (api.pagetreeId) for (const link of links) link.context = { pagetreeId: api.pagetreeId }
-    const pageLinks = links.map(l => pick(l, 'siteId', 'linkId', 'path', 'context'))
+    const pageLinks = links.map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
     const { pages } = await api.query(PAGE_QUERY_NO_DATA, { links: pageLinks })
     return pages.map(processPageRecord)
   },
@@ -262,10 +261,9 @@ const pageByLinkWithoutData = new BestMatchLoader<PageLinkWithContext, Omit<Page
     return 0
   }
 })
-const pageByLinkLoader = new BestMatchLoader<PageLinkWithContext, PageRecord>({
+const pageByLinkLoader = new BestMatchLoader<PageLink, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
-    if (api.pagetreeId) for (const link of links) link.context = { pagetreeId: api.pagetreeId }
-    const pageLinks = links.map(l => pick(l, 'siteId', 'linkId', 'path', 'context'))
+    const pageLinks = links.map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
     const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published, schemaversion })
     return pages.map(processPageRecord)
   },
