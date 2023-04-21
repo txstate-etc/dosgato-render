@@ -1,4 +1,4 @@
-import { Component, ComponentData } from '@dosgato/templating'
+import { Component, type ComponentData } from '@dosgato/templating'
 import path from 'path'
 import { htmlEncode } from 'txstate-utils'
 import { fileURLToPath } from 'url'

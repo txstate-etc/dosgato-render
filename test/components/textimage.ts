@@ -1,4 +1,4 @@
-import { Component, ComponentData, printHeader } from '@dosgato/templating'
+import { Component, type ComponentData, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface TextImageData extends ComponentData {

@@ -1,4 +1,4 @@
-import { Component, ComponentData } from '@dosgato/templating'
+import { Component, type ComponentData } from '@dosgato/templating'
 import { htmlEncode, isBlank } from 'txstate-utils'
 
 export interface LinkData extends ComponentData {

@@ -1,6 +1,6 @@
 {
   "name": "@dosgato/render",
-  "version": "0.0.75",
+  "version": "0.0.76",
   "description": "Library providing the rendering server for DosGato CMS.",
   "type": "module",
   "exports": {
@@ -19,7 +19,7 @@
     "@fastify/cookie": "^8.3.0",
     "cheerio": "^1.0.0-rc.12",
     "dataloader-factory": "^4.4.1",
-    "esbuild": "^0.16.6",
+    "esbuild": "^0.17.17",
     "fastify-txstate": "^3.1.0",
     "file-type": "^18.0.0",
     "jose": "^4.8.1",
@@ -33,10 +33,10 @@
     "@types/mime-types": "^2.1.1",
     "@types/node": "^18.0.5",
     "@types/semver": "^7.3.9",
-    "eslint-config-standard-with-typescript": "^26.0.0",
+    "eslint-config-standard-with-typescript": "^34.0.0",
     "nodemon": "^2.0.16",
     "ts-node": "^10.7.0",
-    "typescript": "^4.8.3"
+    "typescript": "^5.0.4"
   },
   "repository": {
     "type": "git",

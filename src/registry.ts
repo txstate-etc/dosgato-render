@@ -1,4 +1,4 @@
-import { PageRecord, Page, Component, ResourceProvider, ComponentData, CSSBlock, JSBlock, FileDeclaration, SCSSInclude, replaceLinksInText } from '@dosgato/templating'
+import { type PageRecord, Page, type Component, type ResourceProvider, type ComponentData, type CSSBlock, type JSBlock, type FileDeclaration, type SCSSInclude, replaceLinksInText } from '@dosgato/templating'
 import cheerio from 'cheerio'
 import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
@@ -7,7 +7,7 @@ import mime from 'mime-types'
 import sass from 'sass'
 import semver from 'semver'
 import { isBlank, isNotBlank } from 'txstate-utils'
-import { RenderingAPIClient } from './api.js'
+import { type RenderingAPIClient } from './api.js'
 import { resourceversion } from './version.js'
 
 function versionGreater (v2: string | undefined, v1: string | undefined) {
@@ -104,11 +104,11 @@ function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: num
  * over their installations and opt-in to whatever templates they want to have/support.
  */
 export class TemplateRegistry {
-  public pages: Map<string, new (page: PageRecord, editMode: boolean, extension: string) => Page> = new Map()
-  public components: Map<string, new (component: ComponentData, path: string, parent: Component, editMode: boolean, extension: string) => Component> = new Map()
-  public cssblocks: Map<string, RegistryCSSBlock> = new Map()
-  public jsblocks: Map<string, RegistryJSBlock> = new Map()
-  public files: Map<string, RegistryFile> = new Map()
+  public pages = new Map<string, new (page: PageRecord, editMode: boolean, extension: string) => Page>()
+  public components = new Map<string, new (component: ComponentData, path: string, parent: Component, editMode: boolean, extension: string) => Component>()
+  public cssblocks = new Map<string, RegistryCSSBlock>()
+  public jsblocks = new Map<string, RegistryJSBlock>()
+  public files = new Map<string, RegistryFile>()
   public all = [] as (typeof Component | typeof Page)[]
   public sassincludes = new Map<string, RegistrySCSSInclude>()
 

@@ -1,4 +1,4 @@
-import { Page, PageForNavigation } from '@dosgato/templating'
+import { Page, type PageForNavigation } from '@dosgato/templating'
 import { htmlEncode, stringify } from 'txstate-utils'
 
 export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], testDataByLink: any, testDataByPath: any }, any> {

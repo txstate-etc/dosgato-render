@@ -1,4 +1,4 @@
-import { advanceHeader, Component, ComponentData, ContextBase, printHeader } from '@dosgato/templating'
+import { advanceHeader, Component, type ComponentData, type ContextBase, printHeader } from '@dosgato/templating'
 import { htmlEncode } from 'txstate-utils'
 
 export interface PanelData extends ComponentData {
