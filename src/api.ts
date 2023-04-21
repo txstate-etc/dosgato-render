@@ -1,4 +1,4 @@
-import { APIClient, AssetFolderLink, AssetLink, AssetRecord, DataData, DataFolderLink, DataLink, extractLinksFromText, LinkDefinition, PageData, PageForNavigation, PageLink, PageLinkWithContext, PageRecord, PictureAttributes, SiteInfo } from '@dosgato/templating'
+import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord, type DataData, type DataFolderLink, type DataLink, extractLinksFromText, type LinkDefinition, type PageData, type PageForNavigation, type PageLink, type PageLinkWithContext, type PageRecord, type PictureAttributes, type SiteInfo } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
@@ -44,8 +44,8 @@ query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $publishe
 `
 
 const PREVIEW_PAGE_QUERY = `
-query getPreviewPage ($pagetreeId: ID!, $schemaversion: DateTime!, $path: UrlSafePath!, $published: Boolean, $version: Int) {
-  pages (filter: { pagetreeIds: [$pagetreeId], paths: [$path] }) {
+query getPreviewPage ($schemaversion: DateTime!, $path: UrlSafePath!, $published: Boolean, $version: Int) {
+  pages (filter: { paths: [$path] }) {
     ${PAGE_INFO_VERSION}
   }
 }
@@ -463,13 +463,13 @@ export class RenderingAPIClient implements APIClient {
       ret = resolvePath(page.site.url?.prefix, page.path.replace(/^\/[^/]+/, ''))
     } else if (opts?.absolute && ['preview', 'edit'].includes(this.context)) {
       // absolute published preview url
-      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/${this.published ? 'public' : 'latest'}`, page.path)
+      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
     } else if (this.context === 'live') {
       // site-relative launched url
       ret = resolvePath(page.site.url?.path, page.path.replace(/^\/[^/]+/, ''))
     } else {
       // site-relative preview
-      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.pagetreeId!}/${this.published ? 'public' : 'latest'}`, page.path)
+      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
     }
     return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
@@ -550,8 +550,8 @@ export class RenderingAPIClient implements APIClient {
     return pages[0] ? processPageRecord(pages[0]) : undefined
   }
 
-  async getPreviewPage (pagetreeId: string, path: string, schemaversion: Date, published?: true, version?: number) {
-    const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string } })[] }>(PREVIEW_PAGE_QUERY, { pagetreeId, path, schemaversion, published, version })
+  async getPreviewPage (path: string, schemaversion: Date, published?: true, version?: number) {
+    const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string }, pagetree: { id: string } })[] }>(PREVIEW_PAGE_QUERY, { path, schemaversion, published, version })
     return pages[0] ? processPageRecord(pages[0]) : undefined
   }
 
