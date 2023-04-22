@@ -16,7 +16,7 @@ import { schemaversion } from './version.js'
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
   if (header[0] === 'Bearer') return header[1]
-  return req.query?.token ?? req.cookies.dg_token
+  return req.cookies.dg_token
 }
 
 type APIClientClass = new <T extends APIClient> (published: boolean, token: string | undefined, req: FastifyRequest) => T
