@@ -1,5 +1,5 @@
 :host(:focus) {
-  outline: none;
+  outline: none !important;
 }
 
 .dg-edit-bar {
