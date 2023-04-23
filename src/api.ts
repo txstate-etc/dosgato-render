@@ -63,6 +63,7 @@ function matchAssetPath (link: AssetLink | AssetFolderLink, asset: { path: strin
 
 export interface FetchedAsset {
   id: string
+  linkId: string
   path: string
   checksum: string
   name: string
@@ -87,7 +88,7 @@ export interface FetchedAsset {
   }
 }
 
-const assetDetails = 'id path checksum name extension filename mime size data resizes { id width height mime } box { width height } site { id name }'
+const assetDetails = 'id linkId path checksum name extension filename mime size data resizes { id width height mime } box { width height } site { id name }'
 
 const assetByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetLink[], api: RenderingAPIClient) => {
@@ -96,7 +97,7 @@ const assetByLinkLoader = new BestMatchLoader({
       , { links: links.map(l => ({ ...pick(l, 'path', 'checksum', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
     return assets
   },
-  scoreMatch: (link, asset) => asset.id === link.id ? 3 : (matchAssetPath(link, asset) ? 2 : (asset.checksum === link.checksum ? 1 : 0))
+  scoreMatch: (link, asset) => asset.linkId === link.id ? 3 : (matchAssetPath(link, asset) ? 2 : (asset.checksum === link.checksum ? 1 : 0))
 })
 
 const assetsByFolderPathLoader = new ManyJoinedLoader({
@@ -474,7 +475,7 @@ export class RenderingAPIClient implements APIClient {
     return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
 
-  async scanForLinks (text: string) {
+  async scanForLinks (text: string | undefined) {
     const links = extractLinksFromText(text)
     const resolvedLinks = (await Promise.all(links.map(async l => await this.resolveLink(l))))
     for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
