@@ -1,4 +1,4 @@
-import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord, type DataData, type DataFolderLink, type DataLink, extractLinksFromText, type LinkDefinition, type PageData, type PageForNavigation, type PageLink, type PageLinkWithContext, type PageRecord, type PictureAttributes, type SiteInfo } from '@dosgato/templating'
+import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord, type DataData, type DataFolderLink, type DataLink, extractLinksFromText, type LinkDefinition, type PageData, type PageForNavigation, type PageLink, type PageLinkWithContext, type PageRecord, type PictureAttributes, type SiteInfo, type DataRecord } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
@@ -295,6 +295,8 @@ export interface FetchedData {
   name: string
   data: DataData
   path: string
+  publishedAt?: string
+  modifiedAt: string
   site?: {
     id: string
     name: string
@@ -304,11 +306,15 @@ export interface FetchedData {
   }
 }
 
+function fetchedDataToRecord (d: Pick<FetchedData, 'id' | 'name' | 'path' | 'data' | 'modifiedAt' | 'publishedAt'>): DataRecord {
+  return { ...pick(d, 'id', 'name', 'path', 'data'), modifiedAt: new Date(d.modifiedAt), publishedAt: d.publishedAt ? new Date(d.publishedAt) : undefined }
+}
+
 const dataByPathLoader = new OneToManyLoader({
   fetch: async (paths: string[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      'query getDataByPath ($paths: [UrlSafePath!]!) { data (filter: { paths: $paths}) { id name data path site { id name } template { key } } }'
-      , { paths }
+      'query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!) { data (filter: { beneathOrAt: $paths, published: $published }) { id name data(published: $published) path publishedAt modifiedAt site { id name } template { key } } }'
+      , { paths, published: api.published }
     )
     return data
   },
@@ -318,8 +324,8 @@ const dataByPathLoader = new OneToManyLoader({
 const dataByDataLinkLoader = new BestMatchLoader({
   fetch: async (links: DataLink[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      'query getDataByLink ($links: [DataLinkInput!]!) { data (filter: { links: $links }) { id name data path site { id name } template { key } } }'
-      , { links: links.map(l => pick(l, 'id', 'siteId', 'path')) })
+      'query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published }) { id name data(published:$published) path publishedAt modifiedAt site { id name } template { key } } }'
+      , { links: links.map(l => pick(l, 'id', 'siteId', 'path')), published: api.published })
     return data
   },
   scoreMatch: (link, data) => {
@@ -345,6 +351,9 @@ export interface FetchedDataFolder {
   data: {
     id: string
     name: string
+    path: string
+    publishedAt?: string
+    modifiedAt: string
     data: DataData
   }[]
 }
@@ -352,13 +361,12 @@ export interface FetchedDataFolder {
 const dataFolderByFolderLinkLoader = new BestMatchLoader({
   fetch: async (links: DataFolderLink[], api: RenderingAPIClient) => {
     const { datafolders } = await api.query<{ datafolders: FetchedDataFolder[] }>(
-      'query getDataFolderByLink ($links: [DataFolderLinkInput!]!) { datafolders (filter: { links: $links }){ id name path template { key } site { id name } data { id name data } } }'
-      , { links: links.map(l => pick(l, 'id', 'siteId', 'path')) })
+      'query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links }){ id name path template { key } site { id name } data(filter:{published:$published}) { id name path publishedAt modifiedAt data(published: $published) } } }'
+      , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return datafolders
   },
   scoreMatch: (link, folder) => {
-    // TODO: add template key to DataFolderLink.
-    // if (link.templateKey !== folder.template.key) return 0
+    if (link.templateKey !== folder.template.key) return 0
     if (link.siteId !== folder.site?.id) return 0
     if (link.id === folder.id) return 2
     if (link.path === folder.path) return 1
@@ -526,7 +534,7 @@ export class RenderingAPIClient implements APIClient {
     }
   }
 
-  async getDataByLink (link: string | DataLink | DataFolderLink): Promise<DataData[]> {
+  async getDataByLink (link: string | DataLink | DataFolderLink): Promise<DataRecord[]> {
     if (typeof link === 'string') {
       const parsed = JSON.parse(link)
       if (parsed.type === 'data') link = parsed as DataLink
@@ -534,16 +542,16 @@ export class RenderingAPIClient implements APIClient {
     }
     if (link.type === 'data') {
       const fetchedData = await this.dlf.get(dataByDataLinkLoader).load(link)
-      return fetchedData ? [fetchedData.data] : []
+      return fetchedData ? [fetchedDataToRecord(fetchedData)] : []
     } else {
       const fetchedFolder = await this.dlf.get(dataFolderByFolderLinkLoader).load(link)
-      return fetchedFolder ? fetchedFolder.data.map(d => d.data) : []
+      return fetchedFolder ? fetchedFolder.data.map(fetchedDataToRecord) : []
     }
   }
 
   async getDataByPath (templateKey: string, path: string) {
     const data = await this.dlf.get(dataByPathLoader, this).load(path)
-    return data.filter(d => d.template.key === templateKey).map(d => d.data)
+    return data.filter(d => d.template.key === templateKey).map(fetchedDataToRecord)
   }
 
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date) {
