@@ -313,7 +313,7 @@ function fetchedDataToRecord (d: Pick<FetchedData, 'id' | 'name' | 'path' | 'dat
 const dataByPathLoader = new OneToManyLoader({
   fetch: async (paths: string[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      'query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!) { data (filter: { beneathOrAt: $paths, published: $published }) { id name data(published: $published) path publishedAt modifiedAt site { id name } template { key } } }'
+      'query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED] }) { id name data(published: $published) path publishedAt modifiedAt site { id name } template { key } } }'
       , { paths, published: api.published }
     )
     return data
@@ -324,8 +324,8 @@ const dataByPathLoader = new OneToManyLoader({
 const dataByDataLinkLoader = new BestMatchLoader({
   fetch: async (links: DataLink[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      'query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published }) { id name data(published:$published) path publishedAt modifiedAt site { id name } template { key } } }'
-      , { links: links.map(l => pick(l, 'id', 'siteId', 'path')), published: api.published })
+      'query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published, deleteStates: [NOTDELETED] }) { id name data(published:$published) path publishedAt modifiedAt site { id name } template { key } } }'
+      , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return data
   },
   scoreMatch: (link, data) => {
@@ -361,7 +361,7 @@ export interface FetchedDataFolder {
 const dataFolderByFolderLinkLoader = new BestMatchLoader({
   fetch: async (links: DataFolderLink[], api: RenderingAPIClient) => {
     const { datafolders } = await api.query<{ datafolders: FetchedDataFolder[] }>(
-      'query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links }){ id name path template { key } site { id name } data(filter:{published:$published}) { id name path publishedAt modifiedAt data(published: $published) } } }'
+      'query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links, deleteStates: [NOTDELETED] }){ id name path template { key } site { id name } data(filter:{published:$published, deleteStates: [NOTDELETED]}) { id name path publishedAt modifiedAt data(published: $published) } } }'
       , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return datafolders
   },
@@ -420,7 +420,7 @@ export class RenderingAPIClient implements APIClient {
     if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
     const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, publishedAt: string | undefined, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
       query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
-        pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath }) {
+        pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath, deleteStates: [NOTDELETED] }) {
           id
           name
           title
