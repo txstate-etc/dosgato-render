@@ -130,7 +130,7 @@ window.dgEditing = {
     }
   },
   message (e) {
-    if (!e.data) return // in case we receive non-dosgato events from an iframe embedded in the page being edited
+    if (typeof e.data !== 'object') return // in case we receive non-dosgato events from an iframe embedded in the page being edited
     if ('validdrops' in e.data && this.dragging) {
       const { validdrops } = e.data
       const bars = Array.from(document.querySelectorAll('[data-path]'))
