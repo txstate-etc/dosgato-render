@@ -32,9 +32,11 @@ window.dgEditing = {
     for (const bar of bars) bar.classList.remove('selected')
   },
   edit (e) {
+    e.stopPropagation()
     this.send('edit', e)
   },
   create (e) {
+    e.stopPropagation()
     this.send('create', e)
   },
   move (e) {
@@ -128,6 +130,7 @@ window.dgEditing = {
     }
   },
   message (e) {
+    if (!e.data) return // in case we receive non-dosgato events from an iframe embedded in the page being edited
     if ('validdrops' in e.data && this.dragging) {
       const { validdrops } = e.data
       const bars = Array.from(document.querySelectorAll('[data-path]'))

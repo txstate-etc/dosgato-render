@@ -32,14 +32,13 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], te
       this.api.getDataByLink(stringify({ type: 'data', templateKey: 'keyd1', path: '/site2/site2datafolder/red-content', id: 'itchanges', siteId: '2' })),
       this.api.getDataByPath('keyd2', '/global')
     ])
-    console.log(testDataByLink)
     if (root.id !== this.pageInfo.id) this.registerInherited('main', root.data.areas?.main ?? [], root.id)
     return { navPages, testDataByLink, testDataByPath }
   }
 
   renderNavPage (p: PageForNavigation): string {
     return `
-      <a href="${htmlEncode(p.href)}">${p.title}</a>
+      <a href="${htmlEncode(p.href)}">${htmlEncode(p.title)}</a>
       <div style="padding-left: 1em">
         ${p.children.map(c => this.renderNavPage(c)).join('')}
       </div>
@@ -51,8 +50,8 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], te
     for (const d of this.fetched.testDataByPath) {
       data += `
         <tr>
-          <td>${d.name}</td>
-          <td>${d.floors}</td>
+          <td>${htmlEncode(d.name)}</td>
+          <td>${htmlEncode(d.floors)}</td>
         </tr>
       `
     }
