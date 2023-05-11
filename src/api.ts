@@ -489,21 +489,25 @@ export class RenderingAPIClient implements APIClient {
     for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
   }
 
+  assetPrefix () {
+    return this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : RenderingAPIClient.contextPath + '/.asset'
+  }
+
   assetHref (asset: FetchedAsset | undefined) {
     if (!asset) return 'brokenlink'
     if (asset.box) {
-      return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/2000/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
+      return `${this.assetPrefix()}/${asset.id}/w/2000/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
     } else {
-      return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/${encodeURIComponent(asset.filename)}`
+      return `${this.assetPrefix()}/${asset.id}/${encodeURIComponent(asset.filename)}`
     }
   }
 
   resizeHref (resize: FetchedAsset['resizes'][number], asset: FetchedAsset) {
-    return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/resize/${resize.id}/${encodeURIComponent(asset.filename)}`
+    return `${this.assetPrefix()}/${asset.id}/resize/${resize.id}/${encodeURIComponent(asset.filename)}`
   }
 
   assetHrefByWidth (asset: FetchedAsset, width: number) {
-    return `${this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : process.env.DOSGATO_API_BASE!}/assets/${asset.id}/w/${width}/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
+    return `${this.assetPrefix()}/${asset.id}/w/${width}/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
   }
 
   srcSet (resizes: FetchedAsset['resizes'], asset: FetchedAsset) {
@@ -602,7 +606,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async #query <T = any> (token: string, query: string, variables?: any) {
-    const resp = await fetch(process.env.DOSGATO_API_URL!, {
+    const resp = await fetch(process.env.DOSGATO_API_BASE! + '/graphql', {
       method: 'POST',
       mode: 'no-cors',
       cache: 'no-cache',

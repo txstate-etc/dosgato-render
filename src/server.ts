@@ -1,11 +1,13 @@
 import { type APIClient, type ResourceProvider } from '@dosgato/templating'
 import cookie from '@fastify/cookie'
-import { Blob } from 'buffer'
+import { Blob } from 'node:buffer'
 import { type FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { fileTypeFromFile } from 'file-type'
-import { createReadStream, readFileSync } from 'fs'
+import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
+import { Readable } from 'node:stream'
+import type { ReadableStream } from 'node:stream/web'
 import { rescue } from 'txstate-utils'
 import { RenderingAPIClient } from './api.js'
 import { type RegistryFile, templateRegistry } from './registry.js'
@@ -44,6 +46,7 @@ export class RenderingServer extends Server {
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.edit/' })
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.preview/' })
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.compare/' })
+        void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.asset/' })
         const withoutToken = new URL(req.url, `${req.protocol}://${req.hostname}`)
         withoutToken.searchParams.delete('token')
         void res.redirect(302, withoutToken.toString())
@@ -180,6 +183,34 @@ export class RenderingServer extends Server {
       void res.header('Content-Length', editingCssSize)
       void res.header('Cache-Control', 'max-age=31536000, immutable')
       return editingCss
+    })
+
+    /**
+     * Route for serving assets with cookie authentication
+     *
+     * During editing and previewing, we may have images and links to assets in
+     * the page that anonymous users can't see. Especially when editing sandboxes
+     * or viewing archives.
+     *
+     * So downloading assets must be authenticated, but the API only accepts
+     * bearer tokens for security reasons. This endpoint is here to translate the
+     * render service's cookie into a bearer token for the API and proxy the HTTP
+     * response.
+     */
+    this.app.get<{ Querystring: any, Params: { '*': string } }>('/.asset/*', async (req, res) => {
+      const token = getToken(req)
+      const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
+      query.set('admin', '1')
+      const resp = await fetch(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : ''
+        }
+      })
+      for (const h of ['Last-Modified', 'ETag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
+        void res.header(h, resp.headers.get(h))
+      }
+      void res.status(resp.status)
+      return resp.status >= 400 ? resp.statusText : Readable.fromWeb(resp.body as ReadableStream)
     })
 
     this.app.get('/favicon.ico', async () => {
