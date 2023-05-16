@@ -225,7 +225,7 @@ export class RenderingServer extends Server {
       if (path && path !== '/' && !extension) return await res.redirect(301, `${path}.html`)
       const api = new this.APIClient<RenderingAPIClient>(true, undefined, req)
       api.context = 'live'
-      const page = await api.getLaunchedPage(req.hostname, path, schemaversion)
+      const page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), path, schemaversion)
       if (!page) {
         if (path && path !== '/') throw new HttpError(404)
         else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)

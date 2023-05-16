@@ -37,7 +37,7 @@ ${SITE_INFO}
 
 const LAUNCHED_PAGE_QUERY = `
 query getLaunchedPage ($launchUrl: String!, $schemaversion: DateTime!, $published: Boolean) {
-  pages (filter: { launchedUrls: [$launchUrl] }) {
+  pages (filter: { launchedUrls: [$launchUrl], published: true }) {
     ${PAGE_INFO}
   }
 }
