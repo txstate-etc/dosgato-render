@@ -185,7 +185,13 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
         }
       }
       componentsIncludingInherited.push(...extraComponents)
-      await Promise.all(extraComponents.map(async c => { c.fetched = await c.fetch() }))
+      await Promise.all(extraComponents.map(async c => {
+        try {
+          c.fetched = await c.fetch()
+        } catch (e: any) {
+          c.logError(e)
+        }
+      }))
     } catch (e: any) {
       c.logError(e)
     }
