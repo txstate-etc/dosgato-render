@@ -225,7 +225,7 @@ export class RenderingServer extends Server {
       if (path && path !== '/' && !extension) return await res.redirect(301, `${path}.html`)
       const api = new this.APIClient<RenderingAPIClient>(true, undefined, req)
       api.context = 'live'
-      const pagePath = (path === './root') ? '/' : path
+      const pagePath = (path === '/.root') ? '/' : path
       const page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), pagePath, schemaversion)
       if (!page) {
         if (path && path !== '/') throw new HttpError(404)
