@@ -473,11 +473,20 @@ export class RenderingAPIClient implements APIClient {
     if (link.type === 'url') return { href: link.url }
     if (link.type === 'page') {
       const target = await this.dlf.get(pageByLinkWithoutData).load(link)
-      if (!target) return {}
+      if (!target) {
+        if (this.context === 'live') return { href: link.path.replace(/^\/[^/]+/, ''), title: titleCase(link.path.split('/').slice(-1)[0]) }
+        if (opts?.absolute) {
+          return { href: resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, link.path), title: titleCase(link.path.split('/').slice(-1)[0]) }
+        } else {
+          return { href: resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, link.path), title: titleCase(link.path.split('/').slice(-1)[0]) }
+        }
+      }
       return { href: this.getHref(target, opts), title: target.fallbackTitle }
     } else if (link.type === 'asset') {
       const target = await this.getAssetByLink(link)
-      if (!target) return {}
+      if (!target) {
+        return { href: `${this.assetPrefix()}${link.path ?? '/unknown-asset'}`, title: titleCase(link.path?.split('/').slice(-1)[0] ?? '') }
+      }
       return { href: this.assetHref(target), title: titleCase(target.name) }
     }
     return {}
