@@ -14,6 +14,7 @@ id
 name
 linkId
 path
+fallbackTitle
 createdAt
 modifiedAt
 publishedAt
@@ -27,11 +28,24 @@ id
 name
 linkId
 path
+fallbackTitle
 createdAt
 modifiedAt
 publishedAt
 pagetree { id }
 data (schemaversion: $schemaversion, published: $published, version: $version)
+${SITE_INFO}
+`
+const PAGE_INFO_NODATA = `
+id
+name
+linkId
+path
+fallbackTitle
+createdAt
+modifiedAt
+publishedAt
+pagetree { id }
 ${SITE_INFO}
 `
 
@@ -203,19 +217,16 @@ rootPageByIdLoader.addIdLoader(rootPageByPathLoader)
 const PAGE_QUERY = `
 query getPage ($ids: [ID!], $paths: [UrlSafePath!], $links: [PageLinkInput!], $pagetreeIds: [ID!], $schemaversion: DateTime!, $published: Boolean) {
   pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
-    ${SITE_INFO}
     ${PAGE_INFO}
   }
 }`
 const PAGE_QUERY_NO_DATA = `
 query getPage ($ids: [ID!], $paths: [UrlSafePath!], $links: [PageLinkInput!], $pagetreeIds: [ID!]) {
   pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
-    ${SITE_INFO}
-    id
-    linkId
-    path
+    ${PAGE_INFO_NODATA}
   }
 }`
+type PageWithNoData<T extends PageData = PageData> = Omit<PageRecord<T>, 'data'>
 const pageByIdLoader = new PrimaryKeyLoader({
   fetch: async (ids: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { ids, schemaversion, published: api.published })
@@ -251,8 +262,8 @@ const pageByPathLoader = new PrimaryKeyLoader({
 pageByIdLoader.addIdLoader(pageByPathLoader)
 const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord<PageData>, 'data'>>({
   fetch: async (links, api: RenderingAPIClient) => {
-    const pageLinks = links.map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
-    const { pages } = await api.query(PAGE_QUERY_NO_DATA, { links: pageLinks })
+    const pageLinks = links.filter(l => l.type === 'page').map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
+    const { pages } = await api.query<{ pages: PageWithNoData[] }>(PAGE_QUERY_NO_DATA, { links: pageLinks })
     return pages.map(processPageRecord)
   },
   scoreMatch: (link, page) => {
@@ -264,7 +275,7 @@ const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord<Page
 })
 const pageByLinkLoader = new BestMatchLoader<PageLink, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
-    const pageLinks = links.map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
+    const pageLinks = links.filter(l => l.type === 'page').map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
     const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published, schemaversion })
     return pages.map(processPageRecord)
   },
@@ -418,15 +429,16 @@ export class RenderingAPIClient implements APIClient {
   async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean }) {
     opts ??= {}
     if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
-    const { pages } = await this.query<{ pages: { id: string, name: string, title: string, path: string, publishedAt: string | undefined, site: SiteInfo, parent?: { id: string }, extra: any }[] }>(`
+    const { pages } = await this.query<{ pages: { id: string, name: string, fallbackTitle: string, path: string, publishedAt: string | undefined, site: SiteInfo, pagetree: { id: string }, parent?: { id: string }, extra: any }[] }>(`
       query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
         pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath, deleteStates: [NOTDELETED] }) {
           id
           name
-          title
+          fallbackTitle
           path
           publishedAt
           ${SITE_INFO}
+          pagetree { id }
           parent { id }
           extra: dataByPath (paths: $dataPaths, published: $published)
         }
@@ -434,7 +446,7 @@ export class RenderingAPIClient implements APIClient {
     `, { pagetreeId: this.pagetreeId, depth: opts.depth, dataPaths: opts.extra ?? [], published: !!opts.published || this.published, beneath: toArray(opts.beneath) })
     const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
       ...p,
-      title: isBlank(p.title) ? titleCase(p.name) : p.title,
+      title: p.fallbackTitle,
       href: this.getHref(p, { absolute: opts!.absolute }) ?? '',
       publishedAt: p.publishedAt ? new Date(p.publishedAt) : undefined,
       children: []
@@ -449,36 +461,47 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async resolveLink (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }) {
-    if (!lnk) return undefined
-    const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
-    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return undefined
-    if (link.type === 'url') return link.url // TODO: relative URLs or assume absolute?
-    if (link.type === 'page') {
-      const target = await this.dlf.get(pageByLinkWithoutData).load(link)
-      if (!target) return undefined
-      return this.getHref(target, opts)
-    } else if (link.type === 'asset') {
-      const target = await this.getAssetByLink(link)
-      return this.assetHref(target)
-    }
-    return undefined
+    const { href } = await this.resolveLinkAndTitle(lnk, opts)
+    return href
   }
 
-  getHref (page: { path: string, site: SiteInfo }, opts?: { absolute?: boolean, extension?: string }) {
+  async resolveLinkAndTitle (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }): Promise<{ href?: string, title?: string }> {
+    const ret: { href?: string, title?: string } = {}
+    if (!lnk) return ret
+    const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
+    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return {}
+    if (link.type === 'url') return { href: link.url }
+    if (link.type === 'page') {
+      const target = await this.dlf.get(pageByLinkWithoutData).load(link)
+      if (!target) return {}
+      return { href: this.getHref(target, opts), title: target.fallbackTitle }
+    } else if (link.type === 'asset') {
+      const target = await this.getAssetByLink(link)
+      if (!target) return {}
+      return { href: this.assetHref(target), title: titleCase(target.name) }
+    }
+    return {}
+  }
+
+  getHref (page: { path: string, site: SiteInfo, pagetree: { id: string } }, opts?: { absolute?: boolean, extension?: string }) {
     let ret = ''
-    if (this.context === 'live' && (opts?.absolute || page.site.name !== this.sitename)) {
+    if (this.context !== 'live' && page.site.name === this.sitename) {
+      // linking between pagetrees is not allowed
+      if (this.pagetreeId !== page.pagetree.id) return undefined
+      if (opts?.absolute) {
+        // absolute published preview url
+        ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
+      } else {
+        // site-relative preview
+        ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
+      }
+    } else if (opts?.absolute || page.site.name !== this.sitename) {
       // absolute launched url or fail if not launched
       if (isBlank(page.site.url?.prefix)) return undefined
       ret = resolvePath(page.site.url?.prefix, page.path.replace(/^\/[^/]+/, ''))
-    } else if (opts?.absolute && ['preview', 'edit'].includes(this.context)) {
-      // absolute published preview url
-      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
-    } else if (this.context === 'live') {
+    } else {
       // site-relative launched url
       ret = resolvePath(page.site.url?.path, page.path.replace(/^\/[^/]+/, ''))
-    } else {
-      // site-relative preview
-      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
     }
     return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
