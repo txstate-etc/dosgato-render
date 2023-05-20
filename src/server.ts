@@ -210,7 +210,7 @@ export class RenderingServer extends Server {
         void res.header(h, resp.headers.get(h))
       }
       void res.status(resp.status)
-      return resp.status >= 400 ? resp.statusText : Readable.fromWeb(resp.body as ReadableStream)
+      return resp.status >= 400 ? await resp.text() : Readable.fromWeb(resp.body as ReadableStream)
     })
 
     this.app.get('/favicon.ico', async () => {

@@ -649,7 +649,7 @@ export class RenderingAPIClient implements APIClient {
         'Content-Type': 'application/json'
       }
     })
-    if (resp.status >= 400) throw new HttpError(resp.status)
+    if (resp.status >= 400) throw new HttpError(resp.status, await resp.text())
     const body = await resp.json()
     if (body.errors?.length) throw new Error(body.errors[0].message)
     return body.data as T
