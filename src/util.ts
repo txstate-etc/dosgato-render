@@ -1,6 +1,7 @@
 import { createSecretKey } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isNotBlank } from 'txstate-utils'
 
 export function parsePath (path: string) {
   path = path.trim().toLocaleLowerCase()
@@ -20,6 +21,10 @@ export function resolvePath (prefix: string | undefined, pagePath: string) {
 export function resolvePreviewPath (prefix: string | undefined, pagePath: string) {
   prefix = prefix?.replace(/\/+$/, '')
   return [prefix ?? '', pagePath].join('/')
+}
+
+export function shiftPath (p: string) {
+  return '/' + p.split('/').filter(isNotBlank).slice(1).join('/')
 }
 
 export const jwtSignKey = createSecretKey(process.env.DOSGATO_RENDER_JWT_SECRET!, 'ascii')

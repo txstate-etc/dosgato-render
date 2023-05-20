@@ -3,7 +3,7 @@ import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, 
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
 import { Cache, ensureString, groupby, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
-import { jwtSignKey, resolvePath } from './util.js'
+import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
 
@@ -465,54 +465,75 @@ export class RenderingAPIClient implements APIClient {
     return href
   }
 
-  async resolveLinkAndTitle (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }): Promise<{ href?: string, title?: string }> {
-    const ret: { href?: string, title?: string } = {}
-    if (!lnk) return ret
+  async resolveLinkAndTitle (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }): Promise<{ href?: string, title?: string, broken: boolean }> {
+    if (!lnk) return { broken: true }
     const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
-    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return {}
-    if (link.type === 'url') return { href: link.url }
+    if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return { broken: true }
+    if (link.type === 'url') return { href: link.url, broken: false }
     if (link.type === 'page') {
       const target = await this.dlf.get(pageByLinkWithoutData).load(link)
       if (!target) {
-        if (this.context === 'live') return { href: link.path.replace(/^\/[^/]+/, ''), title: titleCase(link.path.split('/').slice(-1)[0]) }
-        if (opts?.absolute) {
-          return { href: resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, link.path), title: titleCase(link.path.split('/').slice(-1)[0]) }
-        } else {
-          return { href: resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, link.path), title: titleCase(link.path.split('/').slice(-1)[0]) }
+        // link is to a page we can't find, but we'll try to return something readable even though it's broken
+        if (this.context === 'live') {
+          if (this.sitename && link.path.startsWith('/' + this.sitename)) {
+            return { href: shiftPath(link.path), title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+          } else {
+            return { href: link.path, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+          }
         }
+        return { href: this.getPreviewLink(link.path, opts), title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
       }
-      return { href: this.getHref(target, opts), title: target.fallbackTitle }
+      return { href: this.getHref(target, opts), title: target.fallbackTitle, broken: false }
     } else if (link.type === 'asset') {
       const target = await this.getAssetByLink(link)
       if (!target) {
-        return { href: `${this.assetPrefix()}${link.path ?? '/unknown-asset'}`, title: titleCase(link.path?.split('/').slice(-1)[0] ?? '') }
+        return { href: `${this.assetPrefix()}${link.path ?? '/unknown-asset'}`, title: titleCase(link.path?.split('/').slice(-1)[0] ?? ''), broken: true }
       }
-      return { href: this.assetHref(target), title: titleCase(target.name) }
+      return { href: this.assetHref(target), title: titleCase(target.name), broken: false }
     }
-    return {}
+    return { broken: true }
+  }
+
+  getPreviewLink (path: string, opts?: { absolute?: boolean, extension?: string }) {
+    let ret: string
+    if (opts?.absolute) {
+      // absolute published preview url
+      ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, path)
+    } else {
+      // site-relative preview
+      ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, path)
+    }
+    return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
 
   getHref (page: { path: string, site: SiteInfo, pagetree: { id: string } }, opts?: { absolute?: boolean, extension?: string }) {
-    let ret = ''
+    const { href } = this.getHrefPlus(page, opts)
+    return href
+  }
+
+  getHrefPlus (page: { path: string, site: SiteInfo, pagetree: { id: string } }, opts?: { absolute?: boolean, extension?: string }): { broken: boolean, href: string } {
     if (this.context !== 'live' && page.site.name === this.sitename) {
-      // linking between pagetrees is not allowed
-      if (this.pagetreeId !== page.pagetree.id) return undefined
-      if (opts?.absolute) {
-        // absolute published preview url
-        ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
-      } else {
-        // site-relative preview
-        ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, page.path)
-      }
+      // linking between pagetrees should break but be readable, so we return path
+      if (this.pagetreeId !== page.pagetree.id) return { href: page.path, broken: true }
+      return { href: this.getPreviewLink(page.path, opts), broken: false }
     } else if (opts?.absolute || page.site.name !== this.sitename) {
-      // absolute launched url or fail if not launched
-      if (isBlank(page.site.url?.prefix)) return undefined
-      ret = resolvePath(page.site.url?.prefix, page.path.replace(/^\/[^/]+/, ''))
+      // absolute launched url
+      if (isBlank(page.site.url?.prefix)) { // not launched
+        if (this.context === 'live') {
+          // not launched and live, return path including site name, so it breaks but is readable
+          return { href: page.path, broken: true }
+        } else {
+          // not launched but in preview or edit mode, produce a working link for now
+          return { href: this.getPreviewLink(page.path, opts), broken: true }
+        }
+      }
+      const pathWithoutSite = shiftPath(page.path)
+      return { href: resolvePath(page.site.url?.prefix, pathWithoutSite) + (pathWithoutSite !== '/' ? `.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}` : '/'), broken: false }
     } else {
       // site-relative launched url
-      ret = resolvePath(page.site.url?.path, page.path.replace(/^\/[^/]+/, ''))
+      const pathWithoutSite = shiftPath(page.path)
+      return { href: resolvePath(page.site.url?.path, pathWithoutSite) + (pathWithoutSite !== '/' ? `.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}` : page.site.url?.path ? '' : '/'), broken: false }
     }
-    return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
   }
 
   async scanForLinks (text: string | undefined) {
