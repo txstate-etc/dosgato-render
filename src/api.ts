@@ -595,6 +595,11 @@ export class RenderingAPIClient implements APIClient {
     return pages[0] ? processPageRecord(pages[0]) : undefined
   }
 
+  async getSiteInfoByLaunchUrl (launchUrl: string) {
+    const { sites } = await this.#query<{ sites: { id: string, pagetree: { id: string }, url: { path: string, prefix: string } }[] }>(anonToken, 'query getSiteByLaunchUrl ($launchUrl: String!) { sites (filter: { launchUrls: [$launchUrl] }) { id pagetree { id } url { path prefix } } }', { launchUrl })
+    return sites[0]
+  }
+
   async getPreviewPage (path: string, schemaversion: Date, published?: true, version?: number) {
     const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string }, pagetree: { id: string } })[] }>(PREVIEW_PAGE_QUERY, { path, schemaversion, published, version })
     return pages[0] ? processPageRecord(pages[0]) : undefined

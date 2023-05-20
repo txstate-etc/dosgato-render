@@ -8,7 +8,7 @@ import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
 import { Readable } from 'node:stream'
 import type { ReadableStream } from 'node:stream/web'
-import { rescue } from 'txstate-utils'
+import { isNotBlank, rescue } from 'txstate-utils'
 import { RenderingAPIClient } from './api.js'
 import { type RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
@@ -226,13 +226,26 @@ export class RenderingServer extends Server {
       const api = new this.APIClient<RenderingAPIClient>(true, undefined, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
-      const page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), pagePath, schemaversion)
-      if (!page) {
-        if (path && path !== '/') throw new HttpError(404)
-        else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
+      let page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), pagePath, schemaversion)
+      if (page) {
+        api.sitePrefix = page.site.url.prefix
+        api.pagetreeId = page.pagetree.id
       }
-      api.sitePrefix = page.site.url.prefix
-      api.pagetreeId = page.pagetree.id
+      if (!page) {
+        if (path && path !== '/') {
+          void res.status(404)
+          const siteInfo = await api.getSiteInfoByLaunchUrl(`http://${req.hostname.replace(/:\d+$/, '')}${pagePath}`)
+          if (siteInfo) {
+            // we may be rendering the 404 from another site, but we want to render it as if it were part of
+            // the originally requested site, so we use the siteInfo that we gathered about our originally requested site.
+            api.sitePrefix = siteInfo.url.prefix
+            api.pagetreeId = siteInfo.pagetree.id
+            page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), siteInfo.url.path + '404', schemaversion)
+            if (!page && isNotBlank(process.env.DOSGATO_DEFAULT_HOSTNAME)) page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME!, '/404', schemaversion)
+          }
+        } else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
+      }
+      if (!page) throw new HttpError(404)
       return await renderPage(api, req, res, page, extension, false)
     })
   }
