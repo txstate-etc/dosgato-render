@@ -461,11 +461,11 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async resolveLink (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }) {
-    const { href } = await this.resolveLinkAndTitle(lnk, opts)
+    const { href } = await this.resolveLinkPlus(lnk, opts)
     return href
   }
 
-  async resolveLinkAndTitle (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }): Promise<{ href?: string, title?: string, broken: boolean }> {
+  async resolveLinkPlus (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }): Promise<{ href?: string, title?: string, broken: boolean }> {
     if (!lnk) return { broken: true }
     const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return { broken: true }
@@ -536,9 +536,9 @@ export class RenderingAPIClient implements APIClient {
     }
   }
 
-  async scanForLinks (text: string | undefined) {
+  async scanForLinks (text: string | undefined, opts?: { absolute?: boolean }) {
     const links = extractLinksFromText(text)
-    const resolvedLinks = (await Promise.all(links.map(async l => await this.resolveLink(l))))
+    const resolvedLinks = (await Promise.all(links.map(async l => await this.resolveLink(l, opts))))
     for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
   }
 

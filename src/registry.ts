@@ -114,8 +114,8 @@ export class TemplateRegistry {
 
   async addTemplate (template: typeof Component | typeof Page) {
     if (!template.templateKey) throw new Error(`template ${template.name} has undefined templateKey, that must be corrected`)
-    template.prototype.fetchRichText = async function (text: string | undefined) {
-      if (text) await (this.api as unknown as RenderingAPIClient).scanForLinks(text)
+    template.prototype.fetchRichText = async function (text: string | undefined, opts?: { absolute?: boolean }) {
+      if (text) await (this.api as unknown as RenderingAPIClient).scanForLinks(text, opts)
     }
     template.prototype.renderRichText = function (text: string | undefined, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
       if (isBlank(text)) return ''
