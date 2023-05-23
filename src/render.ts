@@ -72,7 +72,7 @@ function renderVariation (extension: string, component: Component) {
 
 // recursive helper function for transformation of plain-object componentData
 // into a hydrated instance of the Component class (or a descendent class like Page)
-function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, extension: string, recursiveInherit?: boolean) {
+function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, extension: string, templateByKey: Record<string, { areas: { name: string }[] }>, recursiveInherit?: boolean) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
   if (!ComponentType) {
@@ -85,10 +85,10 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   component.inheritedFrom = inheritedFrom
   if (recursiveInherit) component.editBar = () => ''
   if (inheritedFrom) component.newBar = () => ''
-  for (const key of Object.keys(componentData.areas ?? {})) {
+  for (const key of templateByKey[componentData.templateKey]?.areas?.map(a => a.name) ?? []) {
     const areaComponents: Component[] = []
     for (let i = 0; i < componentData.areas![key].length; i++) {
-      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, extension, !!inheritedFrom)
+      const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, extension, templateByKey, !!inheritedFrom)
       if (child) areaComponents.push(child)
     }
     component.areas.set(key, areaComponents)
@@ -101,17 +101,17 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 // API, and the output is a Page object, containing many Component objects, all
 // of which are ready with the properties and methods defined in the Component class,
 // that support the rendering process
-function hydratePage (pageData: PageRecord, editMode: boolean, extension: string) {
+function hydratePage (pageData: PageRecord, editMode: boolean, extension: string, templateByKey: Record<string, { areas: { name: string }[] }>) {
   // find the page implementation in the registry
   const PageType = templateRegistry.pages.get(pageData.data.templateKey)
   if (!PageType) throw new Error('Unable to render page. Missing template implementation.')
 
   // hydrate the page data into full objects
   const page = new PageType(pageData, editMode, extension)
-  for (const key of Object.keys(pageData.data.areas ?? {})) {
+  for (const key of templateByKey[pageData.data.templateKey]?.areas?.map(a => a.name) ?? []) {
     const areaComponents: Component[] = []
     for (let i = 0; i < pageData.data.areas![key].length; i++) {
-      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined, extension)
+      const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined, extension, templateByKey)
       if (child) areaComponents.push(child)
     }
     page.areas.set(key, areaComponents)
@@ -133,7 +133,8 @@ function editModeIncludes () {
  */
 export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
   void res.type(mimeTypes[extension] ?? 'text/plain')
-  const pageComponent = hydratePage(page, editMode, extension)
+  const templateByKey = await api.getTemplates()
+  const pageComponent = hydratePage(page, editMode, extension, templateByKey)
   pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname
   pageComponent.addHeader = (key: string, value: string | undefined) => {
     if (value != null) {
@@ -146,7 +147,6 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   }
   const componentsIncludingPage = collectComponents(pageComponent)
 
-  const templateByKey = await api.getTemplates()
   pageComponent.templateProperties = templateByKey[pageComponent.data.templateKey]?.templateProperties
 
   // execute the fetch phase
@@ -168,7 +168,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
         const fromPageId = Array.isArray(entry.fromPageId) ? entry.fromPageId : Array(entry.components.length).fill(entry.fromPageId)
         for (let i = 0; i < entry.components.length; i++) {
           const cData = entry.components[i]
-          const hydrated = hydrateComponent(cData, c, 'inherited', editMode, fromPageId[i], extension)
+          const hydrated = hydrateComponent(cData, c, 'inherited', editMode, fromPageId[i], extension, templateByKey)
           if (hydrated) {
             const hydratedPlusSubComponents = collectComponents(hydrated)
             for (const c of hydratedPlusSubComponents) {
