@@ -87,7 +87,7 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   if (inheritedFrom) component.newBar = () => ''
   for (const key of templateByKey[componentData.templateKey]?.areas?.map(a => a.name) ?? []) {
     const areaComponents: Component[] = []
-    for (let i = 0; i < componentData.areas![key].length; i++) {
+    for (let i = 0; i < (componentData.areas![key]?.length ?? 0); i++) {
       const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, extension, templateByKey, !!inheritedFrom)
       if (child) areaComponents.push(child)
     }
@@ -110,7 +110,7 @@ function hydratePage (pageData: PageRecord, editMode: boolean, extension: string
   const page = new PageType(pageData, editMode, extension)
   for (const key of templateByKey[pageData.data.templateKey]?.areas?.map(a => a.name) ?? []) {
     const areaComponents: Component[] = []
-    for (let i = 0; i < pageData.data.areas![key].length; i++) {
+    for (let i = 0; i < (pageData.data.areas![key]?.length ?? 0); i++) {
       const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined, extension, templateByKey)
       if (child) areaComponents.push(child)
     }
