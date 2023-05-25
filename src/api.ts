@@ -470,6 +470,10 @@ export class RenderingAPIClient implements APIClient {
 
   async resolveLinkPlus (lnk: string | LinkDefinition | undefined, opts?: { absolute?: boolean, extension?: string }): Promise<{ href?: string, title?: string, broken: boolean }> {
     if (!lnk) return { broken: true }
+    const rOpts = {
+      absolute: !!opts?.absolute,
+      extension: opts?.extension?.replace(/^\.+/, '') ?? 'html'
+    }
     const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return { broken: true }
     if (link.type === 'url') return { href: link.url, broken: false }
@@ -484,7 +488,7 @@ export class RenderingAPIClient implements APIClient {
             return { href: link.path, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
           }
         }
-        return { href: this.getPreviewLink(link.path, opts), title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+        return { href: this.getPreviewLink(link.path, rOpts), title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
       }
       return { href: this.getHref(target, opts), title: target.fallbackTitle, broken: false }
     } else if (link.type === 'asset') {
@@ -497,16 +501,16 @@ export class RenderingAPIClient implements APIClient {
     return { broken: true }
   }
 
-  getPreviewLink (path: string, opts?: { absolute?: boolean, extension?: string }) {
+  private getPreviewLink (path: string, opts: { absolute: boolean, extension: string }) {
     let ret: string
-    if (opts?.absolute) {
+    if (opts.absolute) {
       // absolute published preview url
       ret = resolvePath(this.contextOrigin + RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, path)
     } else {
       // site-relative preview
       ret = resolvePath(RenderingAPIClient.contextPath + `/.preview/${this.published ? 'public' : 'latest'}`, path)
     }
-    return `${ret}.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}`
+    return ret + '.' + opts.extension
   }
 
   getHref (page: { path: string, site: SiteInfo, pagetree: { id: string } }, opts?: { absolute?: boolean, extension?: string }) {
@@ -515,11 +519,15 @@ export class RenderingAPIClient implements APIClient {
   }
 
   getHrefPlus (page: { path: string, site: SiteInfo, pagetree: { id: string } }, opts?: { absolute?: boolean, extension?: string }): { broken: boolean, href: string } {
+    const rOpts = {
+      absolute: !!opts?.absolute,
+      extension: opts?.extension?.replace(/^\.+/, '') ?? 'html'
+    }
     if (this.context !== 'live' && page.site.name === this.sitename) {
       // linking between pagetrees should break but be readable, so we return path
       if (this.pagetreeId !== page.pagetree.id) return { href: page.path, broken: true }
-      return { href: this.getPreviewLink(page.path, opts), broken: false }
-    } else if (opts?.absolute || page.site.name !== this.sitename) {
+      return { href: this.getPreviewLink(page.path, rOpts), broken: false }
+    } else if (rOpts.absolute || page.site.name !== this.sitename) {
       // absolute launched url
       if (isBlank(page.site.url?.prefix)) { // not launched
         if (this.context === 'live') {
@@ -527,15 +535,27 @@ export class RenderingAPIClient implements APIClient {
           return { href: page.path, broken: true }
         } else {
           // not launched but in preview or edit mode, produce a working link for now
-          return { href: this.getPreviewLink(page.path, opts), broken: true }
+          return { href: this.getPreviewLink(page.path, rOpts), broken: true }
         }
       }
       const pathWithoutSite = shiftPath(page.path)
-      return { href: resolvePath(page.site.url?.prefix, pathWithoutSite) + (pathWithoutSite !== '/' ? `.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}` : '/'), broken: false }
+      if (pathWithoutSite === '/' && page.site.url!.path === '/') {
+        // launched and the prefix ends with the domain name, no path, so we can't add .html or we'd get example.org.html
+        if (rOpts.extension === 'html') return { href: page.site.url!.prefix.replace(/\/$/, ''), broken: false }
+        // variation like .rss, extension is important so we generate /.root.rss
+        return { href: page.site.url!.prefix + '.root.' + rOpts.extension, broken: false }
+      }
+      return { href: resolvePath(page.site.url!.prefix, pathWithoutSite) + '.' + rOpts.extension, broken: false }
     } else {
       // site-relative launched url
       const pathWithoutSite = shiftPath(page.path)
-      return { href: resolvePath(page.site.url?.path, pathWithoutSite) + (pathWithoutSite !== '/' ? `.${opts?.extension?.replace(/^\.+/, '') ?? 'html'}` : page.site.url?.path ? '' : '/'), broken: false }
+      const resolvedPath = resolvePath(page.site.url?.path, pathWithoutSite)
+      if (resolvedPath === '/') { // home page
+        if (rOpts.extension === 'html') return { href: '/', broken: false }
+        // variation like .rss, extension is important so we generate /.root.rss
+        return { href: '/.root.' + rOpts.extension, broken: false }
+      }
+      return { href: resolvedPath + '.' + rOpts.extension, broken: false }
     }
   }
 

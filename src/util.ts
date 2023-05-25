@@ -1,7 +1,7 @@
 import { createSecretKey } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isNotBlank } from 'txstate-utils'
+import { isBlank, isNotBlank } from 'txstate-utils'
 
 export function parsePath (path: string) {
   path = path.trim().toLocaleLowerCase()
@@ -13,9 +13,10 @@ export function parsePath (path: string) {
 }
 
 export function resolvePath (prefix: string | undefined, pagePath: string) {
-  const [_, ...pagenames] = pagePath.split('/')
+  const pagenames = pagePath.split('/').filter(isNotBlank)
   prefix = prefix?.replace(/\/+$/, '')
-  return [prefix ?? '', ...pagenames].join('/')
+  if (isBlank(prefix)) return pagenames.join('/') || '/'
+  return [prefix, ...pagenames].join('/')
 }
 
 export function resolvePreviewPath (prefix: string | undefined, pagePath: string) {
