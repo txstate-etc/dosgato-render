@@ -14,6 +14,7 @@ import { type RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
 import { parsePath } from './util.js'
 import { schemaversion } from './version.js'
+import { pipeline } from 'node:stream/promises'
 
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
@@ -210,7 +211,8 @@ export class RenderingServer extends Server {
         void res.header(h, resp.headers.get(h))
       }
       void res.status(resp.status)
-      return resp.status >= 400 ? await resp.text() : Readable.fromWeb(resp.body as ReadableStream)
+      if (resp.status >= 400) return await resp.text()
+      void res.send(Readable.fromWeb(resp.body as ReadableStream))
     })
 
     this.app.get('/favicon.ico', async () => {
