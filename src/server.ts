@@ -241,7 +241,7 @@ export class RenderingServer extends Server {
             // we may be rendering the 404 from another site, but we want to render it as if it were part of
             // the originally requested site, so we use the siteInfo that we gathered about our originally requested site.
             api.sitePrefix = siteInfo.url.prefix
-            api.pagetreeId = siteInfo.pagetree.id
+            api.pagetreeId = siteInfo.primaryPagetree.id
             page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), siteInfo.url.path + '404', schemaversion)
             if (!page && isNotBlank(process.env.DOSGATO_DEFAULT_HOSTNAME)) page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME!, '/404', schemaversion)
           }

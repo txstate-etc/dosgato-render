@@ -640,7 +640,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async getSiteInfoByLaunchUrl (launchUrl: string) {
-    const { sites } = await this.#query<{ sites: { id: string, pagetree: { id: string }, url: { path: string, prefix: string } }[] }>(anonToken, 'query getSiteByLaunchUrl ($launchUrl: String!) { sites (filter: { launchUrls: [$launchUrl] }) { id pagetree { id } url { path prefix } } }', { launchUrl })
+    const { sites } = await this.#query<{ sites: { id: string, primaryPagetree: { id: string }, url: { path: string, prefix: string } }[] }>(anonToken, 'query getSiteByLaunchUrl ($launchUrl: String!) { sites (filter: { launchUrls: [$launchUrl] }) { id primaryPagetree { id } url { path prefix } } }', { launchUrl })
     return sites[0]
   }
 
