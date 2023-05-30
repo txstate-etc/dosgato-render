@@ -6,15 +6,12 @@ import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { fileTypeFromFile } from 'file-type'
 import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
-import { Readable } from 'node:stream'
-import type { ReadableStream } from 'node:stream/web'
 import { isNotBlank, rescue } from 'txstate-utils'
-import { RenderingAPIClient } from './api.js'
+import { RenderingAPIClient, download } from './api.js'
 import { type RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
 import { parsePath } from './util.js'
 import { schemaversion } from './version.js'
-import { pipeline } from 'node:stream/promises'
 
 function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   const header = req.headers.authorization?.split(' ') ?? []
@@ -202,17 +199,13 @@ export class RenderingServer extends Server {
       const token = getToken(req)
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
       query.set('admin', '1')
-      const resp = await fetch(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : ''
-        }
-      })
-      for (const h of ['Last-Modified', 'ETag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
-        void res.header(h, resp.headers.get(h))
+      const resp = await download(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, token)
+      for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
+        const header = resp.headers[h.toLowerCase()]
+        if (header) void res.header(h, header)
       }
-      void res.status(resp.status)
-      if (resp.status >= 400) return await resp.text()
-      void res.send(Readable.fromWeb(resp.body as ReadableStream))
+      void res.status(resp.statusCode ?? 500)
+      return resp
     })
 
     this.app.get('/favicon.ico', async () => {
