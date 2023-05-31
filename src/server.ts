@@ -212,6 +212,10 @@ export class RenderingServer extends Server {
       throw new HttpError(404)
     })
 
+    this.app.get('/.token', async (req, res) => {
+      return 'OK'
+    })
+
     /**
      * Route to serve launched web pages to anonymous users
      */
