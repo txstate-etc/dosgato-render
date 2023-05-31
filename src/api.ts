@@ -713,7 +713,7 @@ export class RenderingAPIClient implements APIClient {
 }
 
 const httpAgent = new HttpAgent({ maxSockets: 50 })
-const httpsAgent = new HttpAgent({ maxSockets: 50 })
+const httpsAgent = new HttpsAgent({ maxSockets: 50 })
 export async function download (url: string, token: string | undefined) {
   const get = url.startsWith('https:') ? httpsGet : httpGet
   const agent = url.startsWith('https:') ? httpsAgent : httpAgent
