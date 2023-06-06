@@ -416,7 +416,7 @@ export class RenderingAPIClient implements APIClient {
     const page = (id && await this.dlf.get(ancestorsByIdLoader).load(id)) ??
       (path && await this.dlf.get(ancestorsByPathLoader).load(path))
     if (!page) throw new Error(`Unable to retrieve ancestors for id = ${id ?? ''}, path = ${path ?? ''}`)
-    return page.ancestors.reverse()
+    return page.ancestors
   }
 
   async getRootPage ({ id, path }: { id?: string, path?: string }) {
