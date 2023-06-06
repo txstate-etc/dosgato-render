@@ -307,13 +307,23 @@ const templateCache = new Cache(async (_, api: RenderingAPIClient) => {
   return keyby(templates, 'key')
 })
 
+const dataDetails = 'id name data(published: $published) path createdAt publishedAt modifiedAt createdBy { id name } modifiedBy { id name } site { id name } template { key }'
 export interface FetchedData {
   id: string
   name: string
   data: DataData
   path: string
+  createdAt: string
   publishedAt?: string
   modifiedAt: string
+  createdBy: {
+    id: string
+    name: string
+  }
+  modifiedBy: {
+    id: string
+    name: string
+  }
   site?: {
     id: string
     name: string
@@ -323,14 +333,14 @@ export interface FetchedData {
   }
 }
 
-function fetchedDataToRecord (d: Pick<FetchedData, 'id' | 'name' | 'path' | 'data' | 'modifiedAt' | 'publishedAt'>): DataRecord {
-  return { ...pick(d, 'id', 'name', 'path', 'data'), modifiedAt: new Date(d.modifiedAt), publishedAt: d.publishedAt ? new Date(d.publishedAt) : undefined }
+function fetchedDataToRecord (d: FetchedData): DataRecord {
+  return { ...pick(d, 'id', 'name', 'path', 'data', 'createdBy', 'modifiedBy'), createdAt: new Date(d.createdAt), modifiedAt: new Date(d.modifiedAt), publishedAt: d.publishedAt ? new Date(d.publishedAt) : undefined }
 }
 
 const dataByPathLoader = new OneToManyLoader({
   fetch: async (paths: string[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      'query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED] }) { id name data(published: $published) path publishedAt modifiedAt site { id name } template { key } } }'
+      `query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED] }) { ${dataDetails} } }`
       , { paths, published: api.published }
     )
     return data
@@ -341,7 +351,7 @@ const dataByPathLoader = new OneToManyLoader({
 const dataByDataLinkLoader = new BestMatchLoader({
   fetch: async (links: DataLink[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      'query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published, deleteStates: [NOTDELETED] }) { id name data(published:$published) path publishedAt modifiedAt site { id name } template { key } } }'
+      `query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published, deleteStates: [NOTDELETED] }) { ${dataDetails} } }`
       , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return data
   },
@@ -365,20 +375,13 @@ export interface FetchedDataFolder {
     id: string
     name: string
   }
-  data: {
-    id: string
-    name: string
-    path: string
-    publishedAt?: string
-    modifiedAt: string
-    data: DataData
-  }[]
+  data: FetchedData[]
 }
 
 const dataFolderByFolderLinkLoader = new BestMatchLoader({
   fetch: async (links: DataFolderLink[], api: RenderingAPIClient) => {
     const { datafolders } = await api.query<{ datafolders: FetchedDataFolder[] }>(
-      'query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links, deleteStates: [NOTDELETED] }){ id name path template { key } site { id name } data(filter:{published:$published, deleteStates: [NOTDELETED]}) { id name path publishedAt modifiedAt data(published: $published) } } }'
+      `query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links, deleteStates: [NOTDELETED] }){ id name path template { key } site { id name } data(filter:{published:$published, deleteStates: [NOTDELETED]}) { ${dataDetails} } } }`
       , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return datafolders
   },
