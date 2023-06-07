@@ -45,6 +45,7 @@ export class RenderingServer extends Server {
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.preview/' })
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.compare/' })
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.asset/' })
+        void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.page/' })
         const withoutToken = new URL(req.url, `${req.protocol}://${req.hostname}`)
         withoutToken.searchParams.delete('token')
         void res.redirect(302, withoutToken.toString())
@@ -200,6 +201,17 @@ export class RenderingServer extends Server {
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
       query.set('admin', '1')
       const resp = await download(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, token)
+      for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
+        const header = resp.headers[h.toLowerCase()]
+        if (header) void res.header(h, header)
+      }
+      void res.status(resp.statusCode ?? 500)
+      return resp
+    })
+    this.app.get<{ Querystring: any, Params: { '*': string } }>('/.page/*', async (req, res) => {
+      const token = getToken(req)
+      const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
+      const resp = await download(`${process.env.DOSGATO_API_BASE!}/pages/${encodeURI(req.params['*'])}?${query.toString()}`, token)
       for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
         const header = resp.headers[h.toLowerCase()]
         if (header) void res.header(h, header)
