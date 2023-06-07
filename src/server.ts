@@ -61,7 +61,7 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         const published = req.params.version === 'public' ? true : undefined
-        const version = published ? undefined : (parseInt(req.params.version, 10) || undefined)
+        const version = published || req.params.version === 'latest' ? undefined : parseInt(req.params.version, 10)
         if (version != null && isNaN(version)) throw new HttpError(404)
         const token = getToken(req)
         if (!token && !published) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
