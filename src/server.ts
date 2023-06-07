@@ -61,7 +61,8 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         const published = req.params.version === 'public' ? true : undefined
-        const version = published ? undefined : (parseInt(req.params.version) || undefined)
+        const version = published ? undefined : (parseInt(req.params.version, 10) || undefined)
+        if (version != null && isNaN(version)) throw new HttpError(404)
         const token = getToken(req)
         if (!token && !published) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
         const api = new this.APIClient<RenderingAPIClient>(!!published, token, req)
@@ -85,9 +86,12 @@ export class RenderingServer extends Server {
         if (!token) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
         const api = new this.APIClient<RenderingAPIClient>(false, token, req)
         api.context = 'preview'
+        const fromVersionNum = parseInt(req.params.fromVersion, 10)
+        const toVersionNum = parseInt(req.params.toVersion, 10)
+        if (isNaN(fromVersionNum) || isNaN(toVersionNum)) throw new HttpError(404)
         const [fromPage, toPage] = await Promise.all([
-          rescue(api.getPreviewPage(path, schemaversion, undefined, parseInt(req.params.fromVersion)), { condition: e => e.message.includes('permitted') }),
-          rescue(api.getPreviewPage(path, schemaversion, undefined, parseInt(req.params.toVersion)), { condition: e => e.message.includes('permitted') })
+          rescue(api.getPreviewPage(path, schemaversion, undefined, fromVersionNum), { condition: e => e.message.includes('permitted') }),
+          rescue(api.getPreviewPage(path, schemaversion, undefined, toVersionNum), { condition: e => e.message.includes('permitted') })
         ])
         if (!fromPage || !toPage) throw new HttpError(404)
         api.pagetreeId = toPage.pagetree.id
