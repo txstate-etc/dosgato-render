@@ -307,7 +307,7 @@ const templateCache = new Cache(async (_, api: RenderingAPIClient) => {
   return keyby(templates, 'key')
 })
 
-const dataDetails = 'id name data(published: $published) path createdAt publishedAt modifiedAt createdBy { id name } modifiedBy { id name } site { id name } template { key }'
+const dataDetails = 'id name data(published: $published, publishedIfNecessary: true) path createdAt publishedAt modifiedAt createdBy { id name } modifiedBy { id name } site { id name } template { key }'
 export interface FetchedData {
   id: string
   name: string
