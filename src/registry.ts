@@ -4,7 +4,7 @@ import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
 import mime from 'mime-types'
-import sass from 'sass'
+import { compileString } from 'sass'
 import semver from 'semver'
 import { isBlank, isNotBlank } from 'txstate-utils'
 import { type RenderingAPIClient } from './api.js'
@@ -197,7 +197,7 @@ export class TemplateRegistry {
         finalBlock.fontfiles = Array.from(fonts.values())
 
         if (finalBlock.sass) {
-          const compiled = sass.compileString(css, { sourceMap: true, sourceMapIncludeSources: true, importer })
+          const compiled = compileString(css, { sourceMap: true, sourceMapIncludeSources: true, importer })
           compiled.sourceMap!.file = `${key}.scss`
           compiled.sourceMap!.sources = [`${key}.scss`, ...compiled.sourceMap!.sources.slice(1).map(u => new URL(u).pathname.substring(1) + '.scss')]
           css = `${compiled.css}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,${Buffer.from(JSON.stringify(compiled.sourceMap), 'utf-8').toString('base64')} */`
