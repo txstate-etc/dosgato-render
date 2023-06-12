@@ -1,6 +1,7 @@
 import { getFilePath, RenderingServer } from '../src/index.js'
 import { templateRegistry } from '../src/registry.js'
 import { resourceversion } from '../src/version.js'
+import { ColumnLayoutTemplate } from './components/columnlayout.js'
 import { HorizontalRuleTemplate } from './components/horizontalrule.js'
 import { LinkTemplate } from './components/link.js'
 import { PanelTemplate } from './components/panel.js'
@@ -24,7 +25,8 @@ await server.start({
     QuoteTemplate,
     RichTextTemplate,
     HorizontalRuleTemplate,
-    TextImageTemplate
+    TextImageTemplate,
+    ColumnLayoutTemplate
   ]
 })
 console.info('service started with resourceversion =', resourceversion)
