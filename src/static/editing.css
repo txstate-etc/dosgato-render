@@ -2,6 +2,29 @@
   outline: none !important;
 }
 
+:host {
+ container-type: inline-size;
+ display: block;
+}
+
+@container (max-width: 250px) {
+  div.dg-edit-bar {
+    text-align: center;
+    flex-direction: column; /* same as flex-wrap: wrap;display:block; */
+    padding: 2px 0;
+  }
+  span.dg-edit-bar-label:after {
+    display: block;
+    font-size: 0.9em;
+  }
+  span.dg-edit-bar-label {
+    margin-right: 0;
+  }
+  div.dg-edit-bar-buttons {
+    font-size: 0.9em;
+  }
+}
+
 .dg-edit-bar {
   cursor: pointer;
   border: 2px solid #BC8CBF;
@@ -14,6 +37,9 @@
 }
 .dg-edit-bar-label {
   margin-right: auto;
+}
+.dg-edit-bar-buttons {
+  white-space: nowrap;
 }
 .dg-edit-bar.dg-edit-bar-inherited {
   cursor: default;
@@ -81,13 +107,16 @@
 }
 
 .dg-new-bar.dg-yes-drop span:after {
-  content: ' (drop to place inside)'
+  content: ' (Drop to place inside)';
+  text-transform: none;
 }
 
 .dg-edit-bar.dg-yes-drop .dg-edit-bar-label:after {
-  content: ' (drop to place above)'
+  content: ' (Drop to place above)';
+  text-transform: none;
 }
 
 .dg-edit-bar.dg-yes-drop.dg-dragging-below .dg-edit-bar-label:after {
-  content: ' (drop to place below)'
+  content: ' (Drop to place below)';
+  text-transform: none;
 }

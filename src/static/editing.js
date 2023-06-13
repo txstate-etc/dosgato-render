@@ -253,7 +253,9 @@ const editBar = document.createElement('template')
 editBar.innerHTML = `
 <div tabindex="-1" draggable="true" onclick="dgEditing.select(event)" ondragstart="dgEditing.drag(event)" ondragend="dgEditing.dragend(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onkeydown="dgEditing.keydown(event)">
   <span class="dg-edit-bar-label"></span>
-  <span class="dg-edit-bar-move">${moveIcon}</span>
+  <div class="dg-edit-bar-buttons">
+    <span class="dg-edit-bar-move">${moveIcon}</span>
+  </div>
 </div>`
 class EditBar extends SharedBar {
   static get observedAttributes () { return ['class', 'disable-delete'] }
@@ -267,6 +269,7 @@ class EditBar extends SharedBar {
   init () {
     this.tmpl = editBar.content.cloneNode(true)
     this.bar = this.tmpl.querySelector('div')
+    this.buttons = this.tmpl.querySelector('.dg-edit-bar-buttons')
     this.installCss()
     const label = this.bar.querySelector('.dg-edit-bar-label')
     const id = randomid()
@@ -279,7 +282,7 @@ class EditBar extends SharedBar {
       this.editButton.addEventListener('click', e => window.dgEditing.edit(e))
       this.editButton.addEventListener('focus', e => window.dgEditing.focus(e))
       this.editButton.innerHTML = editIcon
-      this.bar.appendChild(this.editButton)
+      this.buttons.appendChild(this.editButton)
     }
 
     this.trash = document.createElement('button')
@@ -288,7 +291,7 @@ class EditBar extends SharedBar {
     this.trash.addEventListener('click', e => window.dgEditing.del(e))
     this.trash.addEventListener('focus', e => window.dgEditing.focus(e))
     this.trash.innerHTML = trashIcon
-    this.bar.appendChild(this.trash)
+    this.buttons.appendChild(this.trash)
 
     this.attributeChangedCallback()
     this.shadowRoot.appendChild(this.tmpl)

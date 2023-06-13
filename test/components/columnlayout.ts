@@ -9,6 +9,9 @@ export class ColumnLayoutTemplate extends Component {
           display: flex;
           max-width: 100%;
         }
+        .column-layout > div {
+          width:25%;
+        }
       `
     }]
   ])
