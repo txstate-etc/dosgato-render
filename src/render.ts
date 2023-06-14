@@ -140,7 +140,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
     if (value != null) {
       void res.header(key, value)
       if (key === 'Location') void res.status(302)
-    } else res.removeHeader(key)
+    } else void res.removeHeader(key)
   }
   pageComponent.setStatus = (statusCode: number) => {
     void res.status(statusCode)

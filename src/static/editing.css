@@ -84,6 +84,10 @@
   border-color: transparent;
 }
 
+[draggable="false"] .dg-edit-bar-move {
+  opacity: 0.3;
+}
+
 .dg-new-bar svg, .dg-edit-bar svg {
   display: inline-block;
   width: 1.8em;

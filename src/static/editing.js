@@ -130,6 +130,12 @@ window.dgEditing = {
       e.dataTransfer.dropEffect = 'move'
     }
   },
+  init () {
+    const bars = Array.from(document.querySelectorAll('[data-path]'))
+    const allpaths = bars.map(this.barPath)
+    const editbarpaths = bars.filter(b => b.tagName === 'DG-EDIT-BAR').map(this.barPath)
+    window.top.postMessage({ action: 'maymove', allpaths, editbarpaths }, '*')
+  },
   message (e) {
     if (typeof e.data !== 'object') return // in case we receive non-dosgato events from an iframe embedded in the page being edited
     if ('validdrops' in e.data && this.dragging) {
@@ -168,6 +174,12 @@ window.dgEditing = {
     } else if ('focus' in e.data) {
       const bar = document.querySelector(`[data-path="${e.data.focus}"]`)
       bar.shadowRoot.querySelector('button')?.focus()
+    } else if ('movablePaths' in e.data) {
+      this.movablePaths = e.data.movablePaths
+      const bars = Array.from(document.querySelectorAll('[data-path]'))
+      for (const bar of bars) {
+        bar.setAttribute('draggable', this.movablePaths.has(this.barPath(bar)))
+      }
     }
   },
   saveState (key, val) {
@@ -259,12 +271,13 @@ editBar.innerHTML = `
   </div>
 </div>`
 class EditBar extends SharedBar {
-  static get observedAttributes () { return ['class', 'disable-delete'] }
+  static get observedAttributes () { return ['class', 'disable-delete', 'draggable'] }
 
   attributeChangedCallback () {
     if (!this.bar) return
     this.setClass('dg-edit-bar')
     this.trash.disabled = this.hasAttribute('disable-delete')
+    this.bar.setAttribute('draggable', this.trash.disabled || this.getAttribute('draggable'))
   }
 
   init () {
@@ -358,3 +371,5 @@ class InheritBar extends SharedBar {
   }
 }
 window.customElements.define('dg-inherit-bar', InheritBar)
+
+document.addEventListener('DOMContentLoaded', () => dgEditing.init())
