@@ -26,6 +26,12 @@
   }
 }
 
+@container (max-width: 80px) {
+  div.dg-edit-bar-buttons {
+    text-wrap: wrap;
+  }
+}
+
 .dg-edit-bar {
   cursor: pointer;
   border: 2px solid #BC8CBF;
