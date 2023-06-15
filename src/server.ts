@@ -19,7 +19,7 @@ function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   return req.cookies.dg_token
 }
 
-type APIClientClass = new <T extends APIClient> (published: boolean, token: string | undefined, req: FastifyRequest) => T
+type APIClientClass = new <T extends APIClient> (published: boolean, req: FastifyRequest) => T
 
 export class RenderingServer extends Server {
   private APIClient!: APIClientClass
@@ -65,9 +65,9 @@ export class RenderingServer extends Server {
         if (version != null && isNaN(version)) throw new HttpError(404)
         const token = getToken(req)
         if (!token && !published) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
-        const api = new this.APIClient<RenderingAPIClient>(!!published, token, req)
+        const api = new this.APIClient<RenderingAPIClient>(!!published, req)
         api.context = 'preview'
-        const page = await rescue(api.getPreviewPage(path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
+        const page = await rescue(api.getPreviewPage(token, path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
         if (!page) throw new HttpError(404)
         api.pagetreeId = page.pagetree.id
         api.sitename = page.site.name
@@ -84,14 +84,14 @@ export class RenderingServer extends Server {
         const { path, extension } = parsePath(req.params['*'])
         const token = getToken(req)
         if (!token) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
-        const api = new this.APIClient<RenderingAPIClient>(false, token, req)
+        const api = new this.APIClient<RenderingAPIClient>(false, req)
         api.context = 'preview'
         const fromVersionNum = parseInt(req.params.fromVersion, 10)
         const toVersionNum = parseInt(req.params.toVersion, 10)
         if (isNaN(fromVersionNum) || isNaN(toVersionNum)) throw new HttpError(404)
         const [fromPage, toPage] = await Promise.all([
-          rescue(api.getPreviewPage(path, schemaversion, undefined, fromVersionNum), { condition: e => e.message.includes('permitted') }),
-          rescue(api.getPreviewPage(path, schemaversion, undefined, toVersionNum), { condition: e => e.message.includes('permitted') })
+          rescue(api.getPreviewPage(token, path, schemaversion, undefined, fromVersionNum), { condition: e => e.message.includes('permitted') }),
+          rescue(api.getPreviewPage(token, path, schemaversion, undefined, toVersionNum), { condition: e => e.message.includes('permitted') })
         ])
         if (!fromPage || !toPage) throw new HttpError(404)
         api.pagetreeId = toPage.pagetree.id
@@ -114,9 +114,9 @@ export class RenderingServer extends Server {
         const token = getToken(req)
         if (!token) throw new HttpError(401)
         const { path, extension } = parsePath(req.params['*'])
-        const api = new this.APIClient<RenderingAPIClient>(false, token, req)
+        const api = new this.APIClient<RenderingAPIClient>(false, req)
         api.context = 'edit'
-        const page = await api.getPreviewPage(path, schemaversion)
+        const page = await api.getPreviewPage(token, path, schemaversion)
         if (!page) throw new HttpError(404)
         api.pagetreeId = page.pagetree.id
         api.sitename = page.site.name
@@ -238,7 +238,7 @@ export class RenderingServer extends Server {
     this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
       const { path, extension } = parsePath(req.params['*'])
       if (path && path !== '/' && !extension) return await res.redirect(301, `${path}.html`)
-      const api = new this.APIClient<RenderingAPIClient>(true, undefined, req)
+      const api = new this.APIClient<RenderingAPIClient>(true, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
       let page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), pagePath, schemaversion)
@@ -248,9 +248,9 @@ export class RenderingServer extends Server {
       }
       if (!page) {
         if (path && path !== '/') {
-          void res.status(404)
           const siteInfo = await api.getSiteInfoByLaunchUrl(`http://${req.hostname.replace(/:\d+$/, '')}${pagePath}`)
           if (siteInfo) {
+            void res.status(404)
             // we may be rendering the 404 from another site, but we want to render it as if it were part of
             // the originally requested site, so we use the siteInfo that we gathered about our originally requested site.
             api.sitePrefix = siteInfo.url.prefix

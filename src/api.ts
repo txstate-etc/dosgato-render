@@ -73,6 +73,11 @@ const anonToken = await new SignJWT({ sub: 'anonymous' })
   .setProtectedHeader({ alg: 'HS256' })
   .sign(jwtSignKey)
 
+const renderToken = await new SignJWT({ sub: 'render' })
+  .setIssuer('dg-render')
+  .setProtectedHeader({ alg: 'HS256' })
+  .sign(jwtSignKey)
+
 function matchAssetPath (link: AssetLink | AssetFolderLink, asset: { path: string, site: { id: string, name: string } }) {
   if (link.path === asset.path) return true
   return link.siteId && link.siteId === asset.site.id && link.path?.split('/').slice(2).join('/') === asset.path.split('/').slice(2).join('/')
@@ -396,7 +401,6 @@ const dataFolderByFolderLinkLoader = new BestMatchLoader({
 
 export class RenderingAPIClient implements APIClient {
   dlf = new DataLoaderFactory(this)
-  token: string
   pagetreeId?: string
   sitename?: string
   sitePrefix?: string
@@ -405,8 +409,7 @@ export class RenderingAPIClient implements APIClient {
   resolvedLinks = new Map<string, string | undefined>()
   static contextPath = process.env.CONTEXT_PATH ?? ''
 
-  constructor (public published: boolean, token?: string, req?: FastifyRequest) {
-    this.token = isBlank(token) ? anonToken : token
+  constructor (public published: boolean, req?: FastifyRequest) {
     // req is only undefined when we are querying a token
     // it will never be null when rendering a page
     this.contextOrigin = req ? `${req.protocol}://${req.hostname}` : ''
@@ -571,39 +574,39 @@ export class RenderingAPIClient implements APIClient {
     for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
   }
 
-  assetPrefix () {
-    return this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : RenderingAPIClient.contextPath + '/.asset'
+  assetPrefix (absolute?: boolean) {
+    return this.context === 'live' ? process.env.DOSGATO_ASSET_LIVE_BASE! : (absolute ? this.contextOrigin : '') + RenderingAPIClient.contextPath + '/.asset'
   }
 
-  assetHref (asset: FetchedAsset | undefined) {
+  assetHref (asset: FetchedAsset | undefined, absolute?: boolean) {
     if (!asset) return 'brokenlink'
     if (asset.box) {
-      return `${this.assetPrefix()}/${asset.id}/w/2000/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
+      return `${this.assetPrefix(absolute)}/${asset.id}/w/2000/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
     } else {
-      return `${this.assetPrefix()}/${asset.id}/${encodeURIComponent(asset.filename)}`
+      return `${this.assetPrefix(absolute)}/${asset.id}/${encodeURIComponent(asset.filename)}`
     }
   }
 
-  resizeHref (resize: FetchedAsset['resizes'][number], asset: FetchedAsset) {
-    return `${this.assetPrefix()}/${asset.id}/resize/${resize.id}/${encodeURIComponent(asset.filename)}`
+  resizeHref (resize: FetchedAsset['resizes'][number], asset: FetchedAsset, absolute?: boolean) {
+    return `${this.assetPrefix(absolute)}/${asset.id}/resize/${resize.id}/${encodeURIComponent(asset.filename)}`
   }
 
-  assetHrefByWidth (asset: FetchedAsset, width: number) {
-    return `${this.assetPrefix()}/${asset.id}/w/${width}/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
+  assetHrefByWidth (asset: FetchedAsset, width: number, absolute?: boolean) {
+    return `${this.assetPrefix(absolute)}/${asset.id}/w/${width}/${asset.checksum.substring(0, 12)}/${encodeURIComponent(asset.filename)}`
   }
 
-  srcSet (resizes: FetchedAsset['resizes'], asset: FetchedAsset) {
-    return resizes.map(r => `${this.resizeHref(r, asset)} ${r.width}w`).join(', ')
+  srcSet (resizes: FetchedAsset['resizes'], asset: FetchedAsset, absolute?: boolean) {
+    return resizes.map(r => `${this.resizeHref(r, asset, absolute)} ${r.width}w`).join(', ')
   }
 
   async getImgAttributes (link: string | AssetLink | undefined, absolute?: boolean | undefined): Promise<PictureAttributes | undefined> {
     if (!link) return undefined
     const asset = await this.getAssetByLink(link)
     if (!asset) return undefined
-    return this.getImgAttributesFromAsset(asset)
+    return this.getImgAttributesFromAsset(asset, absolute)
   }
 
-  getImgAttributesFromAsset (asset: FetchedAsset | undefined) {
+  getImgAttributesFromAsset (asset: FetchedAsset | undefined, absolute?: boolean) {
     if (!asset?.box) return undefined
     const resizesByMime = groupby(asset.resizes, 'mime')
     const widths = new Set<number>([asset.box.width])
@@ -611,12 +614,12 @@ export class RenderingAPIClient implements APIClient {
       widths.add(resize.width)
     }
     return {
-      src: this.assetHref(asset),
+      src: this.assetHref(asset, absolute),
       width: asset.box.width,
       height: asset.box.height,
-      srcset: Array.from(widths).map(w => `${this.assetHrefByWidth(asset, w)} ${w}w`).join(', '),
-      widths: asset.resizes.filter(r => r.mime === asset.mime).map(r => ({ width: r.width, src: this.resizeHref(r, asset) })),
-      alternates: Object.keys(resizesByMime).filter(m => m !== asset.mime).map(m => ({ mime: m, srcset: this.srcSet(resizesByMime[m], asset), widths: resizesByMime[m].map(r => ({ width: r.width, src: this.resizeHref(r, asset) })) }))
+      srcset: Array.from(widths).map(w => `${this.assetHrefByWidth(asset, w, absolute)} ${w}w`).join(', '),
+      widths: asset.resizes.filter(r => r.mime === asset.mime).map(r => ({ width: r.width, src: this.resizeHref(r, asset, absolute) })),
+      alternates: Object.keys(resizesByMime).filter(m => m !== asset.mime).map(m => ({ mime: m, srcset: this.srcSet(resizesByMime[m], asset, absolute), widths: resizesByMime[m].map(r => ({ width: r.width, src: this.resizeHref(r, asset, absolute) })) }))
     }
   }
 
@@ -650,8 +653,8 @@ export class RenderingAPIClient implements APIClient {
     return sites[0]
   }
 
-  async getPreviewPage (path: string, schemaversion: Date, published?: true, version?: number) {
-    const { pages } = await this.query<{ pages: (PageRecord & { site: { name: string }, pagetree: { id: string } })[] }>(PREVIEW_PAGE_QUERY, { path, schemaversion, published, version })
+  async getPreviewPage (token: string | undefined, path: string, schemaversion: Date, published?: true, version?: number) {
+    const { pages } = await this.#query<{ pages: (PageRecord & { site: { name: string }, pagetree: { id: string } })[] }>(token ?? anonToken, PREVIEW_PAGE_QUERY, { path, schemaversion, published, version })
     return pages[0] ? processPageRecord(pages[0]) : undefined
   }
 
@@ -683,7 +686,6 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async identifyToken (token: string) {
-    if (!this.token) return undefined
     const { users } = await this.#query<{ users: { id: string }[] }>(token, 'query identifyToken { users (filter: { ids: ["self"] }) { id } }')
     return users[0]?.id
   }
@@ -711,7 +713,7 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async query <T = any> (query: string, variables?: any) {
-    return await this.#query<T>(this.token, query, variables)
+    return await this.#query<T>(renderToken, query, variables)
   }
 }
 
