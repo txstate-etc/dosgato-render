@@ -438,36 +438,53 @@ export class RenderingAPIClient implements APIClient {
     return { ...page, title: isBlank(page.data.title) ? titleCase(page.name) : page.data.title }
   }
 
-  async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean }) {
+  async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean, maxChildren?: number, tagsAny?: string[], filter?: (page: PageForNavigation) => boolean | undefined }) {
     opts ??= {}
+    opts.depth ||= 1000
+    let beneath = [opts.beneath ?? '/']
+    const minDepth = (beneath[0] === '/' ? 0 : beneath[0].replace(/\/+$/, '').split('/').length - 1)
+    const finalDepth = opts.depth + minDepth
     if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
-    const { pages } = await this.query<{ pages: { id: string, name: string, fallbackTitle: string, path: string, publishedAt: string | undefined, site: SiteInfo, pagetree: { id: string }, parent?: { id: string }, extra: any }[] }>(`
-      query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!) {
-        pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath, deleteStates: [NOTDELETED] }) {
-          id
-          name
-          fallbackTitle
-          path
-          publishedAt
-          ${SITE_INFO}
-          pagetree { id }
-          parent { id }
-          extra: dataByPath (paths: $dataPaths, published: $published)
+    const roots: PageForNavigation[] = []
+    const pagesById: Record<string, PageForNavigation | undefined> = {}
+    for (let i = minDepth; i < finalDepth; i++) {
+      if (!beneath.length) break
+      const { pages } = await this.query<{ pages: { id: string, name: string, fallbackTitle: string, path: string, publishedAt: string | undefined, site: SiteInfo, pagetree: { id: string }, parent?: { id: string }, extra: any }[] }>(`
+        query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!, $tagsAny: [String!]) {
+          pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath, deleteStates: [NOTDELETED], tagsAny: $tagsAny }) {
+            id
+            name
+            fallbackTitle
+            path
+            publishedAt
+            ${SITE_INFO}
+            pagetree { id }
+            parent { id }
+            extra: dataByPath (paths: $dataPaths, published: $published)
+          }
+        }
+      `, { pagetreeId: this.pagetreeId, depth: i, dataPaths: opts.extra ?? [], published: !!opts.published || this.published, beneath, tagsAny: opts.tagsAny })
+      const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
+        ...p,
+        title: p.fallbackTitle,
+        href: this.getHref(p, { absolute: opts!.absolute }) ?? '',
+        publishedAt: p.publishedAt ? new Date(p.publishedAt) : undefined,
+        children: []
+      })).filter(opts.filter ?? (() => true))
+      beneath = []
+      for (const page of pagesForNavigation) {
+        pagesById[page.id] = page
+        if (i === minDepth) {
+          roots.push(page)
+          beneath.push(page.path)
+        } else {
+          const parent = pagesById[page.parent?.id ?? '.never']
+          if (parent?.children && parent.children.length < (opts.maxChildren ?? 10000)) {
+            parent.children.push(page)
+            beneath.push(page.path)
+          }
         }
       }
-    `, { pagetreeId: this.pagetreeId, depth: opts.depth, dataPaths: opts.extra ?? [], published: !!opts.published || this.published, beneath: toArray(opts.beneath) })
-    const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
-      ...p,
-      title: p.fallbackTitle,
-      href: this.getHref(p, { absolute: opts!.absolute }) ?? '',
-      publishedAt: p.publishedAt ? new Date(p.publishedAt) : undefined,
-      children: []
-    }))
-    const pagesById = keyby(pagesForNavigation, 'id')
-    const roots: PageForNavigation[] = []
-    for (const page of pagesForNavigation) {
-      if (!page.parent || !pagesById[page.parent.id]) roots.push(page)
-      else pagesById[page.parent.id].children.push(page)
     }
     return roots
   }
