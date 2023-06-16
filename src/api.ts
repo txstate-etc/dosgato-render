@@ -93,7 +93,10 @@ export interface FetchedAsset {
   filename: string
   mime: string
   size: number
-  data: any
+  data: {
+    meta: any
+    [keys: string]: any
+  }
   resizes: {
     id: string
     width: number
@@ -684,7 +687,7 @@ export class RenderingAPIClient implements APIClient {
     return {
       ...asset,
       downloadLink: this.assetHref(asset),
-      meta: asset.data,
+      meta: asset.data.meta,
       image: this.getImgAttributesFromAsset(asset)
     }
   }
