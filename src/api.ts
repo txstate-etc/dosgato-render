@@ -346,10 +346,10 @@ function fetchedDataToRecord (d: FetchedData): DataRecord {
 }
 
 const dataByPathLoader = new OneToManyLoader({
-  fetch: async (paths: string[], api: RenderingAPIClient) => {
+  fetch: async (paths: string[], templateKey: string, api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      `query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED] }) { ${dataDetails} } }`
-      , { paths, published: api.published }
+      `query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!, $templateKey: ID!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED], templateKeys:[$templateKey] }) { ${dataDetails} } }`
+      , { paths, published: api.published, templateKey }
     )
     return data
   },
@@ -659,8 +659,8 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async getDataByPath (templateKey: string, path: string) {
-    const data = await this.dlf.get(dataByPathLoader, this).load(path)
-    return data.filter(d => d.template.key === templateKey).map(fetchedDataToRecord)
+    const data = await this.dlf.get(dataByPathLoader, templateKey).load(path)
+    return data.map(fetchedDataToRecord)
   }
 
   async getLaunchedPage (hostname: string, path: string, schemaversion: Date) {
