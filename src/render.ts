@@ -225,7 +225,9 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       `<script src="/.resources/${resourceversion}/${name}.js"${block!.async ? ' async' : ''}${block!.nomodule ? '' : ' type="module"'}></script>`)
   ].join('\n')
   // execute the render phase
-  return renderComponent(pageComponent)
+  const ret = renderComponent(pageComponent)
+  if (pageComponent.hadError) void res.status(500)
+  return ret
 }
 
 Component.editBar = (path: string, opts: EditBarOpts) => {

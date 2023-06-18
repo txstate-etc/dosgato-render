@@ -261,9 +261,7 @@ export class RenderingServer extends Server {
         } else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
       }
       if (!page) throw new HttpError(404)
-      const content = await renderPage(api, req, res, page, extension, false)
-      if (!content.length) void res.status(500)
-      return content
+      return await renderPage(api, req, res, page, extension, false)
     })
   }
 
