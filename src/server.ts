@@ -247,7 +247,8 @@ export class RenderingServer extends Server {
         api.pagetreeId = page.pagetree.id
       }
       if (!page) {
-        if (path && path !== '/') {
+        if ((!process.env.DOSGATO_ADMIN_REDIRECT_HOSTNAME || req.hostname.replace(/:\d+$/, '') === process.env.DOSGATO_ADMIN_REDIRECT_HOSTNAME) && (path === '' || path === '/')) return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
+        else {
           const siteInfo = await api.getSiteInfoByLaunchUrl(`http://${req.hostname.replace(/:\d+$/, '')}${pagePath}`)
           if (siteInfo) {
             void res.status(404)
@@ -258,7 +259,7 @@ export class RenderingServer extends Server {
             page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), siteInfo.url.path + '404', schemaversion)
             if (!page && isNotBlank(process.env.DOSGATO_DEFAULT_HOSTNAME)) page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME!, '/404', schemaversion)
           }
-        } else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
+        }
       }
       if (!page) throw new HttpError(404)
       return await renderPage(api, req, res, page, extension, false)
