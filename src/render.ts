@@ -135,6 +135,14 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   void res.type(mimeTypes[extension] ?? 'text/plain')
   const templateByKey = await api.getTemplates()
   const pageComponent = hydratePage(page, editMode, extension, templateByKey)
+  pageComponent.logError = function (e: Error) {
+    this.hadError = true
+    req.log.error(`Unrecoverable issue occurred during render of ${this.pageInfo.path}. Page template threw the following error:`, e)
+  }
+  ;(pageComponent as any).passError = function (e: Error, path: string) {
+    req.log.warn(`Recoverable issue occured during render of ${this.pageInfo.path}. Component at ${path} threw the following error:`, e)
+  }
+
   pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname
   pageComponent.addHeader = (key: string, value: string | undefined) => {
     if (value != null) {
@@ -196,6 +204,10 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
       c.logError(e)
     }
   }))
+  if (pageComponent.hadError) {
+    void res.status(500)
+    return ''
+  }
 
   // execute the context phase
   await executeSetContext(pageComponent, { headerLevel: 1 })
