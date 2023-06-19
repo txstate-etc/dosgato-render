@@ -15,7 +15,7 @@ export function parsePath (path: string) {
 export function resolvePath (prefix: string | undefined, pagePath: string) {
   const pagenames = pagePath.split('/').filter(isNotBlank)
   prefix = prefix?.replace(/\/+$/, '')
-  if (isBlank(prefix)) return pagenames.join('/') || '/'
+  if (isBlank(prefix)) return '/' + pagenames.join('/')
   return [prefix, ...pagenames].join('/')
 }
 
