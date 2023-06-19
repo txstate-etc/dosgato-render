@@ -241,27 +241,27 @@ export class RenderingServer extends Server {
       const api = new this.APIClient<RenderingAPIClient>(true, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
-      let page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), pagePath, schemaversion)
-      if (page) {
-        api.sitePrefix = page.site.url.prefix
-        api.pagetreeId = page.pagetree.id
-      }
+      const hostname = req.hostname.replace(/:\d+$/, '')
+      let page = await api.getLaunchedPage(hostname, pagePath, schemaversion)
+      let usingDefault404 = false
       if (!page) {
-        if ((!process.env.DOSGATO_ADMIN_REDIRECT_HOSTNAME || req.hostname.replace(/:\d+$/, '') === process.env.DOSGATO_ADMIN_REDIRECT_HOSTNAME) && (path === '' || path === '/')) return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
-        else {
-          const siteInfo = await api.getSiteInfoByLaunchUrl(`http://${req.hostname.replace(/:\d+$/, '')}${pagePath}`)
-          if (siteInfo) {
-            void res.status(404)
-            // we may be rendering the 404 from another site, but we want to render it as if it were part of
-            // the originally requested site, so we use the siteInfo that we gathered about our originally requested site.
-            api.sitePrefix = siteInfo.url.prefix
-            api.pagetreeId = siteInfo.primaryPagetree.id
-            page = await api.getLaunchedPage(req.hostname.replace(/:\d+$/, ''), siteInfo.url.path + '404', schemaversion)
-            if (!page && isNotBlank(process.env.DOSGATO_DEFAULT_HOSTNAME)) page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME!, '/404', schemaversion)
+        const siteInfo = await api.getSiteInfoByLaunchUrl(`http://${hostname}${pagePath}`)
+        if (siteInfo || !((!process.env.DOSGATO_ADMIN_REDIRECT_HOSTNAME || hostname === process.env.DOSGATO_ADMIN_REDIRECT_HOSTNAME) && (path === '' || path === '/'))) {
+          void res.status(404)
+          if (siteInfo) page = await api.getLaunchedPage(hostname, siteInfo.url.path + '404', schemaversion)
+          if (!page && isNotBlank(process.env.DOSGATO_DEFAULT_HOSTNAME)) {
+            page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME!, '/404', schemaversion)
+            usingDefault404 = true
           }
-        }
+        } else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
       }
       if (!page) throw new HttpError(404)
+      api.sitePrefix = page.site.url.prefix
+      api.pagetreeId = page.pagetree.id
+      // if we don't set a sitename links will always be absolute
+      // we want this if we're serving the default hostname's 404 on some other hostname
+      // or else relative links will break
+      if (!usingDefault404) api.sitename = page.site.name
       return await renderPage(api, req, res, page, extension, false)
     })
   }
