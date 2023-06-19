@@ -227,7 +227,7 @@ rootPageByIdLoader.addIdLoader(rootPageByPathLoader)
 
 const PAGE_QUERY = `
 query getPage ($ids: [ID!], $paths: [UrlSafePath!], $links: [PageLinkInput!], $pagetreeIds: [ID!], $schemaversion: DateTime!, $published: Boolean) {
-  pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds }) {
+  pages (filter: { ids: $ids, paths: $paths, links: $links, pagetreeIds: $pagetreeIds, published: $published }) {
     ${PAGE_INFO}
   }
 }`
