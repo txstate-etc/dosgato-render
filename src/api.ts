@@ -450,7 +450,7 @@ export class RenderingAPIClient implements APIClient {
     if (opts.beneath && opts.beneath !== '/' && opts.depth != null) opts.depth += opts.beneath.split('/').length - 1
     const roots: PageForNavigation[] = []
     const pagesById: Record<string, PageForNavigation | undefined> = {}
-    for (let i = minDepth; i < finalDepth; i++) {
+    for (let i = minDepth; i <= finalDepth; i++) {
       if (!beneath.length) break
       const { pages } = await this.query<{ pages: { id: string, name: string, fallbackTitle: string, path: string, publishedAt: string | undefined, site: SiteInfo, pagetree: { id: string }, parent?: { id: string }, extra: any }[] }>(`
         query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!, $tagsAny: [String!]) {
