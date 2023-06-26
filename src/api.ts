@@ -133,7 +133,7 @@ const assetsByFolderPathLoader = new ManyJoinedLoader({
     const { assets } = await api.query<{ assets: FetchedAsset[] }>(
       query
       , { paths })
-    if (filters.recursive) return paths.flatMap(path => assets.filter(a => a.path.startsWith(path)).map(a => ({ key: path, value: a })))
+    if (filters.recursive) return paths.flatMap(path => assets.filter(a => a.path.startsWith(path + '/')).map(a => ({ key: path, value: a })))
     else {
       const assetsPlusFolderPath = assets.map(a => ({ ...a, folderPath: a.path.split('/').slice(0, -1).join('/') }))
       return paths.flatMap(path => assetsPlusFolderPath.filter(a => a.folderPath === path).map(a => ({ key: path, value: a })))
