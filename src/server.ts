@@ -21,6 +21,13 @@ function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
 
 type APIClientClass = new <T extends APIClient> (published: boolean, req: FastifyRequest) => T
 
+async function checkApiHealth () {
+  const localApiBase = process.env.DOSGATO_LOCAL_API_BASE
+  if (!localApiBase) return
+  const resp = await fetch(localApiBase + '/health')
+  return resp.ok ? '' : ((await resp.text()) || String(resp.status))
+}
+
 export class RenderingServer extends Server {
   private APIClient!: APIClientClass
 
@@ -35,6 +42,10 @@ export class RenderingServer extends Server {
       }
       return false
     }
+    const existingCheckHealth = config?.checkHealth
+    config.checkHealth = existingCheckHealth
+      ? async () => (await existingCheckHealth()) || await checkApiHealth()
+      : checkApiHealth
     super(config)
 
     void this.app.register(cookie)
