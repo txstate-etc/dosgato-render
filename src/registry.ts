@@ -123,6 +123,10 @@ export class TemplateRegistry {
       const $ = cheerio.load(text, undefined, false)
       const headerLevel = (opts?.headerLevel ?? (this.renderCtx.headerLevel as number) ?? 2) + (isNotBlank(opts?.advanceHeader) ? 1 : 0)
       const allHeaders = $('h1,h2,h3,h4,h5,h6')
+      for (const header of allHeaders) {
+        const text = $(header).text().trim()
+        if (text.length < 1) $(header).remove()
+      }
       processHeaders(true, headerLevel, headerLevel - 1, 0, allHeaders, headerLevel)
       return $.html() ?? ''
     }
