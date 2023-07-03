@@ -2,7 +2,7 @@ import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord,
 import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
-import { Cache, ensureString, groupby, isBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
+import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
 import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
@@ -507,19 +507,20 @@ export class RenderingAPIClient implements APIClient {
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return { broken: true }
     if (link.type === 'url') return { href: link.url, broken: false }
     if (link.type === 'page') {
+      const hash = isNotBlank(link.hash) ? '#' + link.hash.replace(/^#/, '') : ''
       const target = await this.dlf.get(pageByLinkWithoutData).load(link)
       if (!target) {
         // link is to a page we can't find, but we'll try to return something readable even though it's broken
         if (this.context === 'live') {
           if (this.sitename && link.path.startsWith('/' + this.sitename)) {
-            return { href: shiftPath(link.path), title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+            return { href: shiftPath(link.path) + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
           } else {
-            return { href: link.path, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+            return { href: link.path + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
           }
         }
-        return { href: this.getPreviewLink(link.path, rOpts), title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+        return { href: this.getPreviewLink(link.path, rOpts) + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
       }
-      return { href: this.getHref(target, opts), title: target.fallbackTitle, broken: false }
+      return { href: this.getHref(target, opts) + hash, title: target.fallbackTitle, broken: false }
     } else if (link.type === 'asset') {
       const target = await this.getAssetByLink(link)
       if (!target) {
