@@ -44,6 +44,7 @@ export class RenderingServer extends Server {
     }
     const existingCheckHealth = config?.checkHealth
     config.checkHealth = existingCheckHealth
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
       ? async () => (await existingCheckHealth()) || await checkApiHealth()
       : checkApiHealth
     super(config)
@@ -81,6 +82,7 @@ export class RenderingServer extends Server {
         const page = await rescue(api.getPreviewPage(token, path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
         if (!page) throw new HttpError(404)
         api.pagetreeId = page.pagetree.id
+        api.siteId = page.site.id
         api.sitename = page.site.name
         return await renderPage(api, req, res, page, extension, false)
       }
@@ -106,6 +108,7 @@ export class RenderingServer extends Server {
         ])
         if (!fromPage || !toPage) throw new HttpError(404)
         api.pagetreeId = toPage.pagetree.id
+        api.siteId = fromPage.site.id
         api.sitename = fromPage.site.name
         const [fromHTML, toHTML] = await Promise.all([
           renderPage(api, req, res, fromPage, extension, false),
@@ -130,6 +133,7 @@ export class RenderingServer extends Server {
         const page = await api.getPreviewPage(token, path, schemaversion)
         if (!page) throw new HttpError(404)
         api.pagetreeId = page.pagetree.id
+        api.siteId = page.site.id
         api.sitename = page.site.name
         return await renderPage(api, req, res, page, extension, true)
       }
@@ -269,6 +273,7 @@ export class RenderingServer extends Server {
       if (!page) throw new HttpError(404)
       api.sitePrefix = page.site.url.prefix
       api.pagetreeId = page.pagetree.id
+      api.siteId = page.site.id
       // if we don't set a sitename links will always be absolute
       // we want this if we're serving the default hostname's 404 on some other hostname
       // or else relative links will break

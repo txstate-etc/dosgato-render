@@ -405,6 +405,7 @@ const dataFolderByFolderLinkLoader = new BestMatchLoader({
 export class RenderingAPIClient implements APIClient {
   dlf = new DataLoaderFactory(this)
   pagetreeId?: string
+  siteId?: string
   sitename?: string
   sitePrefix?: string
   context: 'live' | 'preview' | 'edit' = 'live'
@@ -505,7 +506,6 @@ export class RenderingAPIClient implements APIClient {
     }
     const link = typeof lnk === 'string' ? JSON.parse(lnk) as LinkDefinition : lnk
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return { broken: true }
-    if (link.type === 'url') return { href: link.url, broken: false }
     if (link.type === 'page') {
       const hash = isNotBlank(link.hash) ? '#' + link.hash.replace(/^#/, '') : ''
       const target = await this.dlf.get(pageByLinkWithoutData).load(link)
@@ -527,7 +527,15 @@ export class RenderingAPIClient implements APIClient {
         return { href: `${this.assetPrefix()}${link.path ?? '/unknown-asset'}`, title: titleCase(link.path?.split('/').slice(-1)[0] ?? ''), broken: true }
       }
       return { href: this.assetHref(target), title: titleCase(target.name), broken: false }
+    } else if (link.type === 'url' && link.url?.startsWith('/')) {
+      const [path, hash] = link.url.split('#')
+      let target = await this.dlf.get(pageByLinkWithoutData).load({ type: 'page', linkId: 'unavailable', path, siteId: this.siteId! })
+      if (!target) target = await this.dlf.get(pageByPathLoader).load(path)
+      // don't allow a link to another pagetree in the same site
+      if (!target || (target.site.id === this.siteId && target.pagetree.id !== this.pagetreeId)) return { href: link.url, broken: true }
+      return { href: this.getHref(target, opts) + (isNotBlank(hash) ? '#' + hash : ''), title: target.fallbackTitle, broken: false }
     }
+    if (link.type === 'url') return { href: link.url, broken: false }
     return { broken: true }
   }
 
