@@ -25,7 +25,7 @@ async function checkApiHealth () {
   const localApiBase = process.env.DOSGATO_LOCAL_API_BASE
   if (!localApiBase) return
   const resp = await fetch(localApiBase + '/health')
-  return resp.ok ? '' : ((await resp.text()) || String(resp.status))
+  return resp.ok ? undefined : { status: resp.status, message: await resp.text() }
 }
 
 export class RenderingServer extends Server {
