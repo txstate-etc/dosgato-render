@@ -120,9 +120,14 @@ const assetByLinkLoader = new BestMatchLoader({
     const { assets } = await api.query<{ assets: FetchedAsset[] }>(
       `query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { ${assetDetails} } }`
       , { links: links.map(l => ({ ...pick(l, 'path', 'checksum', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
-    return assets
+    return assets.map(a => ({ ...a, contextPagetreeId: api.pagetreeId }))
   },
-  scoreMatch: (link, asset) => asset.linkId === link.id ? 3 : (matchAssetPath(link, asset) ? 2 : (asset.checksum === link.checksum ? 1 : 0))
+  scoreMatch: (link, asset: FetchedAsset & { contextPagetreeId?: string }) => {
+    const score = link.siteId === asset.site.id ? 20 : 0
+    if (link.id === asset.linkId) return 2 + score
+    if (link.path && shiftPath(link.path) === shiftPath(asset.path)) return 1 + score
+    return 0
+  }
 })
 
 const assetsByFolderPathLoader = new ManyJoinedLoader({
@@ -271,18 +276,21 @@ const pageByPathLoader = new PrimaryKeyLoader({
   idLoader: pageByIdLoader
 })
 pageByIdLoader.addIdLoader(pageByPathLoader)
+
+function pageLinkScorer (link: PageLink, page: Omit<PageRecord<PageData>, 'data'> & { contextPagetreeId?: string }) {
+  let score = link.siteId === page.site.id ? 20 : 0
+  score += page.publishedAt ? 10 : 0
+  if (link.linkId === page.linkId) return 2 + score
+  if (shiftPath(link.path) === shiftPath(page.path)) return 1 + score
+  return 0
+}
 const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord<PageData>, 'data'>>({
   fetch: async (links, api: RenderingAPIClient) => {
     const pageLinks = links.filter(l => l.type === 'page').map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
     const { pages } = await api.query<{ pages: PageWithNoData[] }>(PAGE_QUERY_NO_DATA, { links: pageLinks })
-    return pages.map(processPageRecord)
+    return pages.map(processPageRecord).map(p => ({ ...p, contextPagetreeId: api.pagetreeId }))
   },
-  scoreMatch: (link, page) => {
-    if (link.siteId !== page.site.id) return 0
-    if (link.linkId === page.linkId) return 2
-    if (link.path === page.path) return 1
-    return 0
-  }
+  scoreMatch: pageLinkScorer
 })
 const pageByLinkLoader = new BestMatchLoader<PageLink, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
@@ -290,12 +298,7 @@ const pageByLinkLoader = new BestMatchLoader<PageLink, PageRecord>({
     const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published, schemaversion })
     return pages.map(processPageRecord)
   },
-  scoreMatch: (link, page) => {
-    if (link.siteId !== page.site.id) return 0
-    if (link.linkId === page.linkId) return 2
-    if (link.path === page.path) return 1
-    return 0
-  },
+  scoreMatch: pageLinkScorer,
   idLoader: [pageByIdLoader, pageByPathLoader]
 })
 
