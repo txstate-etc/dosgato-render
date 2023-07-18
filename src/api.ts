@@ -700,7 +700,7 @@ export class RenderingAPIClient implements APIClient {
     return {
       ...asset,
       downloadLink: this.assetHref(asset),
-      meta: asset.data.meta,
+      meta: asset.data.meta ?? {},
       image: this.getImgAttributesFromAsset(asset)
     }
   }
