@@ -137,10 +137,10 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   const pageComponent = hydratePage(page, editMode, extension, templateByKey)
   pageComponent.logError = function (e: Error) {
     this.hadError = true
-    req.log.error(`Unrecoverable issue occurred during render of ${this.pageInfo.path}. Page template threw the following error:`, e)
+    req.log.error(`Unrecoverable issue occurred during render of ${this.pageInfo.path}. Page template threw the following error: ${e.stack ?? e.message}`)
   }
   ;(pageComponent as any).passError = function (e: Error, path: string) {
-    req.log.warn(`Recoverable issue occured during render of ${this.pageInfo.path}. Component at ${path} threw the following error:`, e)
+    req.log.warn(`Recoverable issue occured during render of ${this.pageInfo.path}. Component at ${path} threw the following error: ${e.stack ?? e.message}`)
   }
 
   pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname
