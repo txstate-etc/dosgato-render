@@ -124,8 +124,9 @@ const assetByLinkLoader = new BestMatchLoader({
   },
   scoreMatch: (link, asset: FetchedAsset & { contextPagetreeId?: string }) => {
     const score = link.siteId === asset.site.id ? 20 : 0
-    if (link.id === asset.linkId) return 2 + score
-    if (link.path && shiftPath(link.path) === shiftPath(asset.path)) return 1 + score
+    if (link.id === asset.linkId) return 3 + score
+    if (link.path && shiftPath(link.path) === shiftPath(asset.path)) return 2 + score
+    if (link.checksum === asset.checksum) return 1 + score
     return 0
   }
 })
