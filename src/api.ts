@@ -6,7 +6,7 @@ import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringi
 import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
-import { type IncomingMessage, get as httpGet } from 'node:http'
+import { type IncomingMessage, get as httpGet, type IncomingHttpHeaders } from 'node:http'
 import { get as httpsGet } from 'node:https'
 import HttpAgent, { HttpsAgent } from 'agentkeepalive'
 
@@ -752,10 +752,10 @@ export class RenderingAPIClient implements APIClient {
 
 const httpAgent = new HttpAgent({ maxSockets: 50 })
 const httpsAgent = new HttpsAgent({ maxSockets: 50 })
-export async function download (url: string, token: string | undefined) {
+export async function download (url: string, token: string | undefined, headers: IncomingHttpHeaders) {
   const get = url.startsWith('https:') ? httpsGet : httpGet
   const agent = url.startsWith('https:') ? httpsAgent : httpAgent
   return await new Promise<IncomingMessage>((resolve, reject) => {
-    get(url, { headers: { Authorization: `Bearer ${token ?? anonToken}` }, agent }, resolve).on('error', reject)
+    get(url, { headers: { ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match'), Authorization: `Bearer ${token ?? anonToken}` }, agent }, resolve).on('error', reject)
   })
 }

@@ -219,7 +219,7 @@ export class RenderingServer extends Server {
       const token = getToken(req)
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
       query.set('admin', '1')
-      const resp = await download(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, token)
+      const resp = await download(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, token, req.headers)
       for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
         const header = resp.headers[h.toLowerCase()]
         if (header) void res.header(h, header)
@@ -230,7 +230,7 @@ export class RenderingServer extends Server {
     this.app.get<{ Querystring: any, Params: { '*': string } }>('/.page/*', async (req, res) => {
       const token = getToken(req)
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
-      const resp = await download(`${process.env.DOSGATO_API_BASE!}/pages/${encodeURI(req.params['*'])}?${query.toString()}`, token)
+      const resp = await download(`${process.env.DOSGATO_API_BASE!}/pages/${encodeURI(req.params['*'])}?${query.toString()}`, token, req.headers)
       for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
         const header = resp.headers[h.toLowerCase()]
         if (header) void res.header(h, header)
