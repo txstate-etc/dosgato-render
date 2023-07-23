@@ -414,6 +414,7 @@ export class RenderingAPIClient implements APIClient {
   sitePrefix?: string
   context: 'live' | 'preview' | 'edit' = 'live'
   contextOrigin: string
+  traceparent?: string
   resolvedLinks = new Map<string, string | undefined>()
   static contextPath = process.env.CONTEXT_PATH ?? ''
 
@@ -421,6 +422,7 @@ export class RenderingAPIClient implements APIClient {
     // req is only undefined when we are querying a token
     // it will never be null when rendering a page
     this.contextOrigin = req ? `${req.protocol}://${req.hostname}` : ''
+    this.traceparent = req?.headers.traceparent as string | undefined
   }
 
   async getAncestors ({ id, path }: { id?: string, path?: string }) {
@@ -736,7 +738,8 @@ export class RenderingAPIClient implements APIClient {
       body: stringify({ query, variables }),
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(this.traceparent ? { traceparent: this.traceparent } : {})
       }
     })
     if (resp.status >= 400) throw new HttpError(resp.status, await resp.text())
@@ -756,6 +759,6 @@ export async function download (url: string, token: string | undefined, headers:
   const get = url.startsWith('https:') ? httpsGet : httpGet
   const agent = url.startsWith('https:') ? httpsAgent : httpAgent
   return await new Promise<IncomingMessage>((resolve, reject) => {
-    get(url, { headers: { ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match'), Authorization: `Bearer ${token ?? anonToken}` }, agent }, resolve).on('error', reject)
+    get(url, { headers: { ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match', 'traceparent'), Authorization: `Bearer ${token ?? anonToken}` }, agent }, resolve).on('error', reject)
   })
 }
