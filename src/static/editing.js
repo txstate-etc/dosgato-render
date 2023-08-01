@@ -286,25 +286,24 @@ class EditBar extends SharedBar {
     this.buttons = this.tmpl.querySelector('.dg-edit-bar-buttons')
     this.installCss()
     const label = this.bar.querySelector('.dg-edit-bar-label')
+    const labelText = this.getAttribute('label')
     const id = randomid()
     label.setAttribute('id', id)
-    label.innerText = this.getAttribute('label')
+    label.innerText = labelText
 
     if (!this.hasAttribute('hide-edit')) {
       this.editButton = document.createElement('button')
-      this.editButton.setAttribute('aria-describedby', id)
       this.editButton.addEventListener('click', e => window.dgEditing.edit(e))
       this.editButton.addEventListener('focus', e => window.dgEditing.focus(e))
-      this.editButton.innerHTML = editIcon
+      this.editButton.innerHTML = `${editIcon}<span class="visuallyhidden">Edit ${labelText}</span>`
       this.buttons.appendChild(this.editButton)
     }
 
     this.trash = document.createElement('button')
     this.trash.disabled = this.hasAttribute('disable-delete')
-    this.trash.setAttribute('aria-describedby', id)
     this.trash.addEventListener('click', e => window.dgEditing.del(e))
     this.trash.addEventListener('focus', e => window.dgEditing.focus(e))
-    this.trash.innerHTML = trashIcon
+    this.trash.innerHTML = `${trashIcon}<span class="visuallyhidden">Delete ${labelText}</span>`
     this.buttons.appendChild(this.trash)
 
     this.attributeChangedCallback()
@@ -343,7 +342,7 @@ const inheritBar = document.createElement('template')
 inheritBar.innerHTML = `
 <div>
   <span class="dg-edit-bar-label"></span>
-  <button role="link">Jump to Original</button>
+  <button role="link" class="jump-to-original">Jump to Original</button>
 </div>`
 class InheritBar extends SharedBar {
   static get observedAttributes () { return ['class'] }
