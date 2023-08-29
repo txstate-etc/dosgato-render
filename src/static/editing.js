@@ -190,6 +190,9 @@ window.dgEditing = {
   onStateLoaded (cb) {
     if (this.stateCallbacks == null) cb(this.state)
     else this.stateCallbacks.push(cb)
+  },
+  pagebarFocus (buttonIndex) {
+    window.top.postMessage({ action: 'pagebarFocus', buttonIndex }, '*')
   }
 }
 
