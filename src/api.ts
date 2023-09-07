@@ -471,7 +471,7 @@ export class RenderingAPIClient implements APIClient {
             pagetree { id }
             parent { id }
             extra: dataByPath (paths: $dataPaths, published: $published)
-            tags
+            tags (published: $published)
           }
         }
       `, { pagetreeId: this.pagetreeId, depth: i, dataPaths: opts.extra ?? [], published: !!opts.published || this.published, beneath, tagsAny: opts.tagsAny })
