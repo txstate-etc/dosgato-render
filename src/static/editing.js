@@ -78,16 +78,16 @@ window.dgEditing = {
         this.send('copy', e)
       } else if (e.key === 'v') {
         this.send('paste', e)
+      } else if (e.key === 'm') {
+        e.preventDefault()
+        e.stopPropagation()
+        this.send('menu', e)
       }
     } else if (e.key === 'Escape') {
       this.send('cancelCopy', e)
     }
     if (e.ctrlKey || e.altKey || e.metaKey || e.key === 'Insert') return
-    if (e.key === 'm') {
-      e.preventDefault()
-      e.stopPropagation()
-      this.send('menu', e)
-    } else if (e.key === 'Escape') {
+    if (e.key === 'Escape') {
       this.deselect()
       document.activeElement.blur()
       this.send('menu', e)
