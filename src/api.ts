@@ -459,7 +459,7 @@ export class RenderingAPIClient implements APIClient {
     const pagesById: Record<string, PageForNavigation | undefined> = {}
     for (let i = minDepth; i <= finalDepth; i++) {
       if (!beneath.length) break
-      const { pages } = await this.query<{ pages: { id: string, name: string, fallbackTitle: string, path: string, publishedAt: string | undefined, site: SiteInfo, pagetree: { id: string }, parent?: { id: string }, extra: any }[] }>(`
+      const { pages } = await this.query<{ pages: { id: string, name: string, fallbackTitle: string, path: string, publishedAt: string | undefined, site: SiteInfo, pagetree: { id: string }, parent?: { id: string }, extra: any, tags: string[] }[] }>(`
         query getNavigation ($pagetreeId: ID!, $beneath: [UrlSafePath!], $depth: Int, $published: Boolean, $dataPaths: [String!]!, $tagsAny: [String!]) {
           pages (filter: { pagetreeIds: [$pagetreeId], maxDepth: $depth, published: $published, beneath: $beneath, deleteStates: [NOTDELETED], tagsAny: $tagsAny }) {
             id
