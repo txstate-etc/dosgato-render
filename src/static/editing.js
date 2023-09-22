@@ -171,6 +171,17 @@ window.dgEditing = {
       if (!bar) return
       this._select(bar)
       bar.scrollIntoView({ block: 'nearest' })
+      const button = bar.shadowRoot.querySelector('button')
+      if (button) {
+        if (!button.disabled) {
+          button.focus()
+        } else {
+          /* They added a new component and the maximum number of components for the area has been
+            reached. Focus on the last component in the area. */
+          const barsInArea = document.querySelectorAll(`[data-path^="${e.data.selectedPath}."]`)
+          barsInArea[barsInArea.length - 1].shadowRoot.querySelector('button')?.focus()
+        }
+      }
     } else if ('focus' in e.data) {
       const bar = document.querySelector(`[data-path="${e.data.focus}"]`)
       bar.shadowRoot.querySelector('button')?.focus()
