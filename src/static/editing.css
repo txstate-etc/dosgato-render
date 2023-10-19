@@ -79,6 +79,10 @@
   line-height: 1.2;
 }
 
+button.dg-new-bar  {
+  color: black;
+}
+
 .dg-edit-bar button, .dg-edit-bar-move {
   border-width: 0;
   background-color: transparent;
@@ -87,6 +91,7 @@
   cursor: pointer;
   margin-left: 0.1em;
   font-size: 1em;
+  color: black;
 }
 
 .dg-edit-bar-move {
