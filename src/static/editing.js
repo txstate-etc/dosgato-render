@@ -167,8 +167,18 @@ window.dgEditing = {
       }
       this.stateCallbacks = undefined
       window.scrollTo({ top: e.data.scrollTop })
-      const bar = document.querySelector(`[data-path="${e.data.selectedPath}"]`)
-      if (!bar) return
+      let bar = document.querySelector(`[data-path="${e.data.selectedPath}"]`)
+      if (!bar) {
+        /* The max warning might be hidden in an area that has the maximum number of
+          components and in that case, there will be no bar. */
+        const barsInArea = Array.from(document.querySelectorAll(`[data-path^="${e.data.selectedPath}."]`)).filter(b => {
+          const path = b.dataset.path.replace(e.data.selectedPath, '')
+          return path.match(/^\.\d+$/)
+        })
+        if (barsInArea.length && barsInArea.some(b => b.dataset.maxreached === 'true')) {
+          bar = barsInArea[barsInArea.length - 1]
+        } else return
+      }
       this._select(bar)
       bar.scrollIntoView({ block: 'nearest' })
       const button = bar.shadowRoot.querySelector('button')
