@@ -450,7 +450,7 @@ export class RenderingAPIClient implements APIClient {
 
   async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean, maxChildren?: number, tagsAny?: string[], filter?: (page: PageForNavigation) => boolean | undefined }) {
     opts ??= {}
-    opts.depth ||= 1000
+    opts.depth ??= 1000
     let beneath = [opts.beneath ?? '/']
     const minDepth = (beneath[0] === '/' ? 0 : beneath[0].replace(/\/+$/, '').split('/').length - 1)
     const finalDepth = opts.depth + minDepth
