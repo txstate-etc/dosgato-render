@@ -20,7 +20,8 @@ window.dgEditing = {
       path: this.barPath(barTarget),
       label: this.barLabel(barTarget),
       maxreached: barTarget.getAttribute('data-maxreached') === 'true' || barTarget.hasAttribute('disabled'),
-      mayDelete: !barTarget.hasAttribute('disable-delete')
+      mayDelete: !barTarget.hasAttribute('disable-delete'),
+      mayEdit: !barTarget.hasAttribute('hide-edit')
     }, '*')
   },
   select (e) {
