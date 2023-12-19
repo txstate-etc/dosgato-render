@@ -3,7 +3,6 @@ import cookie from '@fastify/cookie'
 import { Blob } from 'node:buffer'
 import { type FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
-import { fileTypeFromFile } from 'file-type'
 import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
 import { isNotBlank, rescue } from 'txstate-utils'
@@ -170,7 +169,7 @@ export class RenderingServer extends Server {
         return block.map ?? ''
       } else if (block.path) {
         const fileblock = block as RegistryFile
-        const mime = fileblock.mime ?? await fileTypeFromFile(fileblock.path)
+        const mime = fileblock.mime
         const instream = createReadStream(fileblock.path)
         void res.header('Content-Length', fileblock.size)
         void res.header('Content-Type', mime)
