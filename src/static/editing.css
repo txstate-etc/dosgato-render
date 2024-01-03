@@ -28,7 +28,7 @@
 
 @container (max-width: 80px) {
   div.dg-edit-bar-buttons {
-    text-wrap: wrap;
+    white-space: normal;
   }
 }
 
