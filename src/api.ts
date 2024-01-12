@@ -2,7 +2,7 @@ import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord,
 import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
-import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringify, titleCase, toArray } from 'txstate-utils'
+import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringify, titleCase } from 'txstate-utils'
 import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
