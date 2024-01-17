@@ -638,7 +638,18 @@ export class RenderingAPIClient implements APIClient {
   async getImgAttributes (link: string | AssetLink | undefined, absolute?: boolean | undefined): Promise<PictureAttributes | undefined> {
     if (!link) return undefined
     const asset = await this.getAssetByLink(link)
-    if (!asset) return undefined
+    if (!asset) {
+      if (typeof link === 'string') link = JSON.parse(link) as AssetLink
+      return {
+        broken: true,
+        src: link.path ?? '',
+        srcset: `${link.path} 100w`,
+        widths: [{ width: 100, src: link.path ?? '' }],
+        width: 100,
+        height: 100,
+        alternates: []
+      }
+    }
     return this.getImgAttributesFromAsset(asset, absolute)
   }
 
@@ -650,6 +661,7 @@ export class RenderingAPIClient implements APIClient {
       widths.add(resize.width)
     }
     return {
+      broken: false,
       src: this.assetHref(asset, absolute),
       width: asset.box.width,
       height: asset.box.height,
