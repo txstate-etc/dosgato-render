@@ -13,11 +13,23 @@ export class TextImageTemplate extends Component<TextImageData> {
     ['textimage', {
       css: `
         .dg-text-image { display: flex; align-items:center; }
+        .dg-text-image img { width: 50%; height: auto; }
       `
     }]
   ])
 
+  async fetch () {
+    const img = await this.api.getImgAttributes(this.data.image)
+    return { img }
+  }
+
   render () {
-    return `${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-text-image">${this.data.text}</div><img src="${htmlEncode(this.data.image)}">`
+    return `
+    ${printHeader(this.renderCtx, htmlEncode(this.data.title))}
+    <div class="dg-text-image">
+      <div class="dg-text-image-text">${this.data.text}</div>
+      <img src="${htmlEncode(this.fetched.img.src)}">
+    </div>
+    `
   }
 }
