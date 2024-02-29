@@ -39,6 +39,6 @@ export class PanelTemplate extends Component<PanelData> {
   }
 
   render () {
-    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderArea('content', { max: 2, editBarOpts: { extraClass: 'dg-panel-bar' } })}</div></div>`
+    return `<div class="dg-panel">${printHeader(this.renderCtx, htmlEncode(this.data.title))}<div class="dg-panel-body">${this.renderArea('content', { max: 2, editBarOpts: { extraClass: 'dg-panel-bar' }, newBarOpts: { disableAddToTop: true } })}</div></div>`
   }
 }

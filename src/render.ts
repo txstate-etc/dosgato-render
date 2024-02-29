@@ -253,5 +253,5 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
 
 Component.newBar = (path: string, opts: NewBarOpts) => {
   if (!opts.editMode) return ''
-  return `<dg-new-bar ${opts.disabled ? 'disabled ' : ''}class="${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" label="${htmlEncode(opts.label)}"></dg-new-bar>`
+  return `<dg-new-bar data-disableaddtotop="${opts.disableAddToTop ?? false}" ${opts.disabled ? 'disabled ' : ''}class="${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" label="${htmlEncode(opts.label)}"></dg-new-bar>`
 }

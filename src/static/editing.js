@@ -39,7 +39,8 @@ window.dgEditing = {
   },
   create (e) {
     e.stopPropagation()
-    this.send('create', e)
+    const disableAddToTop = e.target.getAttribute('data-disableaddtotop') === 'true'
+    window.top.postMessage({ action: 'create', path: this.path(e.target), disableAddToTop }, '*')
   },
   move (e) {
     this.send('move', e)
@@ -358,6 +359,7 @@ class NewBar extends SharedBar {
     const label = this.bar.querySelector('.dg-new-bar-label')
     label.innerText = this.getAttribute('label')
     this.attributeChangedCallback()
+    this.copyAttribute(this.bar, 'data-disableaddtotop')
     this.shadowRoot.appendChild(this.tmpl)
   }
 }
