@@ -264,7 +264,7 @@ export class RenderingServer extends Server {
           void res.status(404)
           if (siteInfo) page = await api.getLaunchedPage(hostname, siteInfo.url.path + '404', schemaversion)
           if (!page && isNotBlank(process.env.DOSGATO_DEFAULT_HOSTNAME)) {
-            page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME!, '/404', schemaversion)
+            page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME, '/404', schemaversion)
             usingDefault404 = true
           }
         } else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)

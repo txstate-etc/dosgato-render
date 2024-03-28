@@ -1,5 +1,5 @@
 import { type PageRecord, Page, type Component, type ResourceProvider, type ComponentData, type CSSBlock, type JSBlock, type FileDeclaration, type SCSSInclude, replaceLinksInText } from '@dosgato/templating'
-import cheerio from 'cheerio'
+import { type Cheerio, type Element, load } from 'cheerio'
 import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
@@ -64,15 +64,15 @@ class SimpleImporter {
 }
 const importer = new SimpleImporter()
 
-function updateTag (h: cheerio.Cheerio<cheerio.Element>, level: number) {
+function updateTag (h: Cheerio<Element>, level: number) {
   for (const itm of h) { itm.tagName = `h${Math.min(6, level)}` }
 }
 
-function addHeaderClass (h: cheerio.Cheerio<cheerio.Element>, level: number, difference: number) {
+function addHeaderClass (h: Cheerio<Element>, level: number, difference: number) {
   h.addClass(`h${level - difference}styles`)
 }
 
-function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: number, headerIndex: number, allHeaders: cheerio.Cheerio<cheerio.Element>, highestLevel: number) {
+function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: number, headerIndex: number, allHeaders: Cheerio<Element>, highestLevel: number) {
   while (headerIndex < allHeaders.length) {
     const h = allHeaders.eq(headerIndex)
     const headerLevel = parseInt(h.get(0)!.tagName.substring(1))
@@ -120,7 +120,7 @@ export class TemplateRegistry {
     template.prototype.renderRichText = function (text: string | undefined, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
       if (isBlank(text)) return ''
       text = replaceLinksInText(text, (this.api as unknown as RenderingAPIClient).resolvedLinks)
-      const $ = cheerio.load(text, undefined, false)
+      const $ = load(text, undefined, false)
       const headerLevel = (opts?.headerLevel ?? (this.renderCtx.headerLevel as number) ?? 2) + (isNotBlank(opts?.advanceHeader) ? 1 : 0)
       const allHeaders = $('h1,h2,h3,h4,h5,h6')
       for (const header of allHeaders) {
@@ -132,7 +132,7 @@ export class TemplateRegistry {
     }
     template.prototype.renderRawHTML = function (text: string | undefined) {
       if (isBlank(text)) return ''
-      const $ = cheerio.load(text, undefined, false)
+      const $ = load(text, undefined, false)
       return $.html() ?? ''
     }
     if (template.prototype instanceof Page && !this.pages.has(template.templateKey)) this.pages.set(template.templateKey, template as any)
