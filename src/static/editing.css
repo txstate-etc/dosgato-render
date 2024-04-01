@@ -102,7 +102,7 @@ button.dg-new-bar  {
   opacity: 0.3;
 }
 
-.dg-new-bar svg, .dg-edit-bar svg {
+.dg-new-bar svg, .dg-edit-bar svg, .dg-area-paste svg {
   display: inline-block;
   width: 1.8em;
   height: 1.8em;
@@ -155,4 +155,23 @@ button.dg-new-bar  {
   font-size: 20px !important;
   background: white !important;
   color: black !important;
+}
+
+.new-bar-container {
+  position: relative;
+  .dg-area-paste {
+    position: absolute;
+    top: 10px;
+    right: 5px;
+    background-color: transparent;
+    border: 0px;
+  }
+}
+
+.dg-area-paste {
+  display: none;
+}
+
+.dg-area-paste[pasteallowed="true"] {
+  display: block;
 }

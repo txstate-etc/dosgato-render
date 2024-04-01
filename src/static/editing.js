@@ -136,7 +136,14 @@ window.dgEditing = {
     const bars = Array.from(document.querySelectorAll('[data-path]'))
     const allpaths = bars.map(this.barPath)
     const editbarpaths = bars.filter(b => b.tagName === 'DG-EDIT-BAR').map(this.barPath)
+    const newbarpaths = bars.filter(b => b.tagName === 'DG-NEW-BAR').map((bar) => {
+      return {
+        path: this.barPath(bar),
+        maxreached: bar.getAttribute('label') === 'Maximum Reached'
+      }
+    })
     window.top.postMessage({ action: 'maymove', allpaths, editbarpaths }, '*')
+    window.top.postMessage({ action: 'maypaste', newbarpaths }, '*')
   },
   message (e) {
     if (typeof e.data !== 'object') return // in case we receive non-dosgato events from an iframe embedded in the page being edited
@@ -203,6 +210,26 @@ window.dgEditing = {
       for (const bar of bars) {
         bar.setAttribute('draggable', this.movablePaths.has(this.barPath(bar)))
       }
+    } else if ('action' in e.data && e.data.action === 'clipboardactive') {
+      // need to send back a list of all the new bars
+      const bars = Array.from(document.querySelectorAll('[data-path]'))
+      const newbarpaths = bars.filter(b => b.tagName === 'DG-NEW-BAR').map((bar) => {
+        return {
+          path: this.barPath(bar),
+          maxreached: bar.getAttribute('label') === 'Maximum Reached'
+        }
+      })
+      window.top.postMessage({ action: 'maypaste', newbarpaths }, '*')
+    } else if ('action' in e.data && e.data.action === 'cancelcopy') {
+      const newbars = Array.from(document.querySelectorAll('dg-new-bar[data-path]'))
+      for (const bar of newbars) {
+        bar.setAttribute('pasteallowed', false)
+      }
+    } else if ('validPastePaths' in e.data) {
+      const newbars = Array.from(document.querySelectorAll('dg-new-bar[data-path]'))
+      for (const bar of newbars) {
+        bar.setAttribute('pasteallowed', e.data.validPastePaths.has(this.barPath(bar)))
+      }
     }
   },
   saveState (key, val) {
@@ -216,6 +243,10 @@ window.dgEditing = {
   },
   pagebarFocus (buttonIndex) {
     window.top.postMessage({ action: 'pagebarFocus', buttonIndex }, '*')
+  },
+  pasteAtPath (event) {
+    const path = this.path(event.target)
+    window.top.postMessage({ action: 'pasteAtPath', path }, '*')
   }
 }
 
@@ -261,6 +292,7 @@ const addIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><ti
 const editIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Edit</title><path fill="currentColor" d="m222.6 78.1l-44.7-44.7a14 14 0 0 0-19.8 0l-120 120a14.3 14.3 0 0 0-4.1 9.9V208a14 14 0 0 0 14 14h44.7a14.3 14.3 0 0 0 9.9-4.1l120-120a14.1 14.1 0 0 0 0-19.8ZM48.5 160L136 72.5L155.5 92L68 179.5ZM46 208v-33.5L81.5 210H48a2 2 0 0 1-2-2Zm50-.5L76.5 188l87.5-87.5l19.5 19.5ZM214.1 89.4L192 111.5L144.5 64l22.1-22.1a1.9 1.9 0 0 1 2.8 0l44.7 44.7a1.9 1.9 0 0 1 0 2.8Z"/></svg>'
 const moveIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Move</title><path fill="currentColor" d="M160.5 199.5a5.9 5.9 0 0 1 0 8.5l-28.3 28.2a5.8 5.8 0 0 1-8.4 0L95.5 208a6 6 0 0 1 8.5-8.5l18 18V160a6 6 0 0 1 12 0v57.5l18-18a5.9 5.9 0 0 1 8.5 0ZM104 56.5l18-18V96a6 6 0 0 0 12 0V38.5l18 18a6 6 0 0 0 4.3 1.8a5.8 5.8 0 0 0 4.2-1.8a5.9 5.9 0 0 0 0-8.5l-28.3-28.2a5.8 5.8 0 0 0-8.4 0L95.5 48a6 6 0 0 0 8.5 8.5ZM38.5 134H96a6 6 0 0 0 0-12H38.5l18-18a6 6 0 0 0-8.5-8.5l-28.2 28.3a5.8 5.8 0 0 0 0 8.4L48 160.5a6 6 0 0 0 4.3 1.8a5.8 5.8 0 0 0 4.2-1.8a5.9 5.9 0 0 0 0-8.5Zm197.7-10.2L208 95.5a6 6 0 0 0-8.5 8.5l18 18H160a6 6 0 0 0 0 12h57.5l-18 18a5.9 5.9 0 0 0 0 8.5a5.8 5.8 0 0 0 4.2 1.8a6 6 0 0 0 4.3-1.8l28.2-28.3a5.8 5.8 0 0 0 0-8.4Z"/></svg>'
 const trashIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Delete</title><path fill="currentColor" d="M216 50h-42V40a22.1 22.1 0 0 0-22-22h-48a22.1 22.1 0 0 0-22 22v10H40a6 6 0 0 0 0 12h10v146a14 14 0 0 0 14 14h128a14 14 0 0 0 14-14V62h10a6 6 0 0 0 0-12ZM94 40a10 10 0 0 1 10-10h48a10 10 0 0 1 10 10v10H94Zm100 168a2 2 0 0 1-2 2H64a2 2 0 0 1-2-2V62h132Zm-84-104v64a6 6 0 0 1-12 0v-64a6 6 0 0 1 12 0Zm48 0v64a6 6 0 0 1-12 0v-64a6 6 0 0 1 12 0Z"/></svg>'
+const pasteIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Paste</title><path fill="currentColor" d="M168 152a8 8 0 0 1-8 8H96a8 8 0 0 1 0-16h64a8 8 0 0 1 8 8Zm-8-40H96a8 8 0 0 0 0 16h64a8 8 0 0 0 0-16Zm56-64v168a16 16 0 0 1-16 16H56a16 16 0 0 1-16-16V48a16 16 0 0 1 16-16h36.26a47.92 47.92 0 0 1 71.48 0H200a16 16 0 0 1 16 16ZM96 64h64a32 32 0 0 0-64 0Zm104-16h-26.75A47.93 47.93 0 0 1 176 64v8a8 8 0 0 1-8 8H88a8 8 0 0 1-8-8v-8a47.93 47.93 0 0 1 2.75-16H56v168h144Z"></path></svg>'
 
 class SharedBar extends HTMLElement {
   copyAttribute (el, attr) {
@@ -340,21 +372,29 @@ window.customElements.define('dg-edit-bar', EditBar)
 
 const newBar = document.createElement('template')
 newBar.innerHTML = `
-<button onclick="dgEditing.create(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onfocus="dgEditing.focus(event)" onkeydown="dgEditing.keydown(event)">
-  ${addIcon}<span class="dg-new-bar-label"></span>
-</button>`
+<div class="new-bar-container">
+  <button onclick="dgEditing.create(event)" ondragenter="dgEditing.enter(event)" ondragleave="dgEditing.leave(event)" ondragover="dgEditing.over(event)" ondrop="dgEditing.drop(event)" onfocus="dgEditing.focus(event)" onkeydown="dgEditing.keydown(event)">
+    ${addIcon}<span class="dg-new-bar-label"></span>
+  </button>
+  <button class="dg-area-paste" onclick="dgEditing.pasteAtPath(event)">
+    ${pasteIcon}<span class="visuallyhidden">Paste Copied Component</span>
+  </button>
+</div>
+`
 class NewBar extends SharedBar {
-  static get observedAttributes () { return ['class', 'disabled'] }
+  static get observedAttributes () { return ['class', 'disabled', 'pasteallowed'] }
 
   attributeChangedCallback () {
     if (!this.bar) return
     this.copyAttribute(this.bar, 'disabled')
     this.setClass('dg-new-bar')
+    this.pasteButton.setAttribute('pasteallowed', this.getAttribute('pasteallowed'))
   }
 
   init () {
     this.tmpl = newBar.content.cloneNode(true)
     this.bar = this.tmpl.querySelector('button')
+    this.pasteButton = this.tmpl.querySelector('button.dg-area-paste')
     this.installCss()
     const label = this.bar.querySelector('.dg-new-bar-label')
     label.innerText = this.getAttribute('label')
