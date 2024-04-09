@@ -39,7 +39,7 @@ window.dgEditing = {
   },
   create (e) {
     e.stopPropagation()
-    const disableAddToTop = e.target.getAttribute('data-disableaddtotop') === 'true'
+    const disableAddToTop = e.target.closest('button').getAttribute('data-disableaddtotop') === 'true'
     window.top.postMessage({ action: 'create', path: this.path(e.target), disableAddToTop }, '*')
   },
   move (e) {
