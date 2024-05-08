@@ -38,15 +38,14 @@ async function executeSetContext (component: Component, renderCtx: any) {
 }
 
 // recursive helper function for the final render phase of rendering (phase 3)
-function renderComponent (component: Component, indexInArea?: number) {
+function renderComponent (component: Component) {
   if (component.hadError) return component.editMode ? 'There was an error rendering a component here.' : ''
   component.renderedAreas = new Map<string, RenderedComponent[]>()
   for (const [key, list] of component.areas) {
-    const areaList = list.map((c, i) => ({ output: renderComponent(c, i), component: c }))
+    const areaList = list.map((c, i) => ({ output: renderComponent(c), component: c }))
     component.renderedAreas.set(key, areaList)
   }
   try {
-    component.indexInArea = indexInArea!
     return component.render()
   } catch (e: any) {
     component.logError(e)
@@ -89,7 +88,15 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
     const areaComponents: Component[] = []
     for (let i = 0; i < (componentData.areas?.[key]?.length ?? 0); i++) {
       const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, extension, templateByKey, !!inheritedFrom)
-      if (child) areaComponents.push(child)
+      if (child) {
+        child.indexInArea = areaComponents.length
+        areaComponents.push(child)
+        child.siblings = areaComponents
+      }
+    }
+    for (let i = 0; i < areaComponents.length; i++) {
+      areaComponents[i].prevSibling = areaComponents[i - 1]
+      areaComponents[i].nextSibling = areaComponents[i + 1]
     }
     component.areas.set(key, areaComponents)
   }
@@ -112,7 +119,15 @@ function hydratePage (pageData: PageRecord, editMode: boolean, extension: string
     const areaComponents: Component[] = []
     for (let i = 0; i < (pageData.data.areas?.[key]?.length ?? 0); i++) {
       const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined, extension, templateByKey)
-      if (child) areaComponents.push(child)
+      if (child) {
+        child.indexInArea = areaComponents.length
+        areaComponents.push(child)
+        child.siblings = areaComponents
+      }
+    }
+    for (let i = 0; i < areaComponents.length; i++) {
+      areaComponents[i].prevSibling = areaComponents[i - 1]
+      areaComponents[i].nextSibling = areaComponents[i + 1]
     }
     page.areas.set(key, areaComponents)
   }
