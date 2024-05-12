@@ -149,12 +149,12 @@ const assetsByFolderPathLoader = new ManyJoinedLoader({
 
 const assetfoldersByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetFolderLink[], api: RenderingAPIClient) => {
-    const { assetfolders } = await api.query<{ assetfolders: { id: string, path: string, site: { id: string, name: string } }[] }>(
-      'query getAssetsByFolderLink ($links: [AssetFolderLinkInput!]!) { assetfolders (filter: { links: $links }) { id path site { id name } } }'
+    const { assetfolders } = await api.query<{ assetfolders: { id: string, linkId: string, path: string, site: { id: string, name: string } }[] }>(
+      'query getAssetsByFolderLink ($links: [AssetFolderLinkInput!]!) { assetfolders (filter: { links: $links }) { id linkId path site { id name } } }'
       , { links: links.map(l => ({ ...pick(l, 'path', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
     return assetfolders
   },
-  scoreMatch: (link, folder) => folder.id === link.id ? 2 : (matchAssetPath(link, folder) ? 1 : 0)
+  scoreMatch: (link, folder) => folder.linkId === link.id ? 2 : (matchAssetPath(link, folder) ? 1 : 0)
 })
 
 const ANCESTOR_QUERY = `
@@ -478,7 +478,7 @@ export class RenderingAPIClient implements APIClient {
       const pagesForNavigation = pages.map<PageForNavigation & { parent?: { id: string } }>(p => ({
         ...p,
         title: p.fallbackTitle,
-        href: this.getHref(p, { absolute: opts!.absolute }) ?? '',
+        href: this.getHref(p, { absolute: opts.absolute }) ?? '',
         publishedAt: p.publishedAt ? new Date(p.publishedAt) : undefined,
         children: []
       })).filter(opts.filter ?? (() => true))
