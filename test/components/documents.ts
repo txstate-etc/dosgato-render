@@ -20,7 +20,7 @@ export class DocumentsTemplate extends Component<DocumentsData, { assets: AssetR
 
   render () {
     return `${printHeader(this.renderCtx, htmlEncode(this.data.title))}
-      <ul class="dg-documents">${this.fetched.assets.map(asset => `<li><a href="${htmlEncode(asset.downloadLink)}">${asset.filename}</a></li>`).join('')}</div>
+      <ul class="dg-documents">${this.fetched.assets.map(asset => `<li><a href="${htmlEncode(asset.downloadLink)}">${asset.filename}</a></li>`).join('')}</ul>
     `
   }
 }
