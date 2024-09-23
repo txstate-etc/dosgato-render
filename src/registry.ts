@@ -1,5 +1,6 @@
 import { type PageRecord, Page, type Component, type ResourceProvider, type ComponentData, type CSSBlock, type JSBlock, type FileDeclaration, type SCSSInclude, replaceLinksInText } from '@dosgato/templating'
-import { type Cheerio, type Element, load } from 'cheerio'
+import { type Cheerio, load } from 'cheerio'
+import type { Element } from 'domhandler'
 import { transform } from 'esbuild'
 import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
