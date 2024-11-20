@@ -59,7 +59,7 @@ export class RenderingServer extends Server {
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.page/' })
         const withoutToken = new URL(req.url, `${req.protocol}://${req.hostname}`)
         withoutToken.searchParams.delete('token')
-        void res.redirect(302, withoutToken.toString())
+        void res.redirect(withoutToken.toString(), 302)
       }
     })
 
@@ -75,7 +75,7 @@ export class RenderingServer extends Server {
         const version = published || req.params.version === 'latest' ? undefined : parseInt(req.params.version, 10)
         if (version != null && isNaN(version)) throw new HttpError(404)
         const token = getToken(req)
-        if (!token && !published) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
+        if (!token && !published) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`, 302)
         const api = new this.APIClient<RenderingAPIClient>(!!published, req)
         api.context = 'preview'
         const page = await rescue(api.getPreviewPage(token, path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
@@ -95,7 +95,7 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         const token = getToken(req)
-        if (!token) void res.redirect(302, `${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`)
+        if (!token) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`, 302)
         const api = new this.APIClient<RenderingAPIClient>(false, req)
         api.context = 'preview'
         const fromVersionNum = parseInt(req.params.fromVersion, 10)
@@ -251,7 +251,7 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
       const { path, extension } = parsePath(req.params['*'])
-      if (path && path !== '/' && !extension) return await res.redirect(301, `${encodeURI(path)}.html`)
+      if (path && path !== '/' && !extension) return await res.redirect(`${encodeURI(path)}.html`, 301)
       const api = new this.APIClient<RenderingAPIClient>(true, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
@@ -267,7 +267,7 @@ export class RenderingServer extends Server {
             page = await api.getLaunchedPage(process.env.DOSGATO_DEFAULT_HOSTNAME, '/404', schemaversion)
             usingDefault404 = true
           }
-        } else return await res.redirect(302, process.env.DOSGATO_ADMIN_BASE!)
+        } else return await res.redirect(process.env.DOSGATO_ADMIN_BASE!, 302)
       }
       if (!page) throw new HttpError(404)
       api.sitePrefix = page.site.url.prefix
