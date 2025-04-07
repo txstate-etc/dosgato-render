@@ -5,7 +5,7 @@ import { type FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
-import { isNotBlank, rescue } from 'txstate-utils'
+import { isNotBlank, rescue, toQuery } from 'txstate-utils'
 import { RenderingAPIClient, download } from './api.js'
 import { type RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
@@ -251,7 +251,7 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
       const { path, extension } = parsePath(req.params['*'])
-      if (path && path !== '/' && !extension) return await res.redirect(`${encodeURI(path)}.html`, 301)
+      if (path && path !== '/' && !extension) return await res.redirect(`${encodeURI(path)}.html${new URL(req.url).search}`, 301)
       const api = new this.APIClient<RenderingAPIClient>(true, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
