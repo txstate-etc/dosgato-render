@@ -251,7 +251,7 @@ export class RenderingServer extends Server {
      */
     this.app.get<{ Params: { '*': string } }>('*', async (req, res) => {
       const { path, extension } = parsePath(req.params['*'])
-      if (path && path !== '/' && !extension) return await res.redirect(`${encodeURI(path)}.html${new URL(req.url).search}`, 301)
+      if (path && path !== '/' && !extension) return await res.redirect(`${encodeURI(path)}.html${new URL(req.url, 'http://example.com').search}`, 301)
       const api = new this.APIClient<RenderingAPIClient>(true, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
