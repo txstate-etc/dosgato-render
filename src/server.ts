@@ -226,6 +226,24 @@ export class RenderingServer extends Server {
       void res.status(resp.statusCode ?? 500)
       return resp
     })
+    /**
+     * This is the spinner page showing before the content loaded
+     */
+    this.app.get<{ Querystring: any, Params: { '*': string } }>('/.spinner', async (req, res) => {
+      void res.header('Content-Type', 'text/html')
+      const resp = `<html><body><style>
+        @-webkit-keyframes spin {
+          0% { -webkit-transform: rotate(0deg); }
+          100% { -webkit-transform: rotate(360deg); }
+          }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        </style><div id="spinner" style="transform: translate(50%, 160px)"><div class="loader" style="border: 6px solid #f3f3f3; border-radius: 50%;  border-top: 6px solid blue; border-right: 6px solid green; border-bottom: 6px solid red; border-left: 6px solid pink; width: 20px; height: 20px; -webkit-animation: spin 2s linear infinite; animation: spin 2s linear infinite;"/></div></body></html>`
+      return resp
+    })
+
     this.app.get<{ Querystring: any, Params: { '*': string } }>('/.page/*', async (req, res) => {
       const token = getToken(req)
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
