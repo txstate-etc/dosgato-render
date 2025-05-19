@@ -1,0 +1,33 @@
+<html><body>
+<style>
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  #container {
+    display: none;
+    position: absolute;
+    top: 25dvh;
+    left: 50dvw;
+    transform: translate(-50%, -50%);
+  }
+  #loader {
+    border: 6px solid;
+    border-radius: 50%;
+    border-top-color: /**top**/white;
+    border-right-color: /**right**/black;
+    border-bottom-color: /**bottom**/white;
+    border-left-color: /**left**/black;
+    width: 40px;
+    height: 40px;
+    animation: spin 3s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #loader {
+      animation: spin 20s linear infinite;
+    }
+  }
+</style>
+<div id="container"><div id="loader"></div></div>
+<script>setTimeout(() => { document.getElementById('container').style.display = 'block' }, 500)</script>
+</body></html>

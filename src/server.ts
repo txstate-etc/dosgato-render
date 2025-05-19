@@ -1,11 +1,12 @@
-import { type APIClient, type ResourceProvider } from '@dosgato/templating'
+import type { Component, Page, APIClient, ResourceProvider } from '@dosgato/templating'
 import cookie from '@fastify/cookie'
 import { Blob } from 'node:buffer'
+import { gzip } from 'node:zlib'
 import { type FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
-import { isNotBlank, rescue, toQuery } from 'txstate-utils'
+import { isNotBlank, rescue } from 'txstate-utils'
 import { RenderingAPIClient, download } from './api.js'
 import { type RegistryFile, templateRegistry } from './registry.js'
 import { renderPage } from './render.js'
@@ -20,6 +21,19 @@ function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
 
 type APIClientClass = new <T extends APIClient> (published: boolean, req: FastifyRequest) => T
 
+export interface RenderingServerOptions {
+  port?: number
+  templates?: any[]
+  providers?: (typeof ResourceProvider)[]
+  CustomAPIClient?: APIClientClass
+  /**
+   * We use a four-color spinner in the editing UI for pages that take longer than 500ms to
+   * load. The default is a gray spinner, but you may specify the four colors in hex format
+   * (e.g. #000000) or as a color name (e.g. red).
+   */
+  spinnerColors?: { top: string, bottom: string, left: string, right: string }
+}
+
 async function checkApiHealth () {
   const localApiBase = process.env.DOSGATO_LOCAL_API_BASE
   if (!localApiBase) return
@@ -29,6 +43,8 @@ async function checkApiHealth () {
 
 export class RenderingServer extends Server {
   private APIClient!: APIClientClass
+  protected spinner?: string
+  protected spinnerGzip?: Buffer
 
   constructor (config?: FastifyTxStateOptions) {
     const existingCheckOrigin = config?.checkOrigin
@@ -226,22 +242,16 @@ export class RenderingServer extends Server {
       void res.status(resp.statusCode ?? 500)
       return resp
     })
-    /**
-     * This is the spinner page showing before the content loaded
-     */
-    this.app.get<{ Querystring: any, Params: { '*': string } }>('/.spinner', async (req, res) => {
-      void res.header('Content-Type', 'text/html')
-      const resp = `<html><body><style>
-        @-webkit-keyframes spin {
-          0% { -webkit-transform: rotate(0deg); }
-          100% { -webkit-transform: rotate(360deg); }
-          }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        </style><div id="spinner" style="transform: translate(50%, 160px)"><div class="loader" style="border: 6px solid #f3f3f3; border-radius: 50%;  border-top: 6px solid blue; border-right: 6px solid green; border-bottom: 6px solid red; border-left: 6px solid pink; width: 20px; height: 20px; -webkit-animation: spin 2s linear infinite; animation: spin 2s linear infinite;"/></div></body></html>`
-      return resp
+
+    this.app.get('/.spinner', async (req, res) => {
+      void res.type('text/html')
+      void res.header('Cache-Control', 'public, max-age=300')
+      if (req.headers['accept-encoding']?.includes('gzip')) {
+        void res.header('Content-Encoding', 'gzip')
+        void res.header('Content-Length', this.spinnerGzip!.byteLength)
+        return this.spinnerGzip!
+      }
+      return this.spinner!
     })
 
     this.app.get<{ Querystring: any, Params: { '*': string } }>('/.page/*', async (req, res) => {
@@ -299,16 +309,30 @@ export class RenderingServer extends Server {
     })
   }
 
-  async start (options?: number | { port?: number, templates?: any[], providers?: (typeof ResourceProvider)[], CustomAPIClient?: APIClientClass }) {
+  async start (options?: number | RenderingServerOptions) {
     const opts = typeof options === 'number' ? { port: options } : options
     this.APIClient = opts?.CustomAPIClient ?? RenderingAPIClient as APIClientClass
     for (const p of [...(opts?.providers ?? []), ...(opts?.templates ?? [])]) {
       templateRegistry.registerSass(p)
     }
+    const spinnerhtml = readFileSync(new URL('./static/spinner.html', import.meta.url)).toString('utf-8')
+    this.spinner = spinnerhtml
+      .replace(/\/\*\*top\*\*\/white/g, opts?.spinnerColors?.top ?? '#757575')
+      .replace(/\/\*\*bottom\*\*\/white/g, opts?.spinnerColors?.bottom ?? '#757575')
+      .replace(/\/\*\*left\*\*\/black/g, opts?.spinnerColors?.left ?? '#ccc')
+      .replace(/\/\*\*right\*\*\/black/g, opts?.spinnerColors?.right ?? '#ccc')
+    const spinnerGzipPromise = new Promise<Buffer>((resolve, reject) => {
+      gzip(this.spinner!, (err, result) => {
+        if (err) reject(err)
+        else resolve(result)
+      })
+    })
     await Promise.all([
       ...(opts?.providers ?? []).map(async p => await this.addProvider(p)),
       ...(opts?.templates ?? []).map(async t => await this.addTemplate(t))
     ])
+    this.spinnerGzip = await spinnerGzipPromise
+
     await super.start(opts?.port)
   }
 

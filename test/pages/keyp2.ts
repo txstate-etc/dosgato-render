@@ -1,4 +1,5 @@
-import { Page, RenderedComponent } from '@dosgato/templating'
+import { Page } from '@dosgato/templating'
+import { sleep } from 'txstate-utils'
 
 export class PageTemplate2 extends Page {
   static templateKey = 'keyp2'
@@ -7,6 +8,10 @@ export class PageTemplate2 extends Page {
   ])
 
   static jsBlocks = new Map()
+
+  async fetch () {
+    await sleep(2000)
+  }
 
   render () {
     return `<!DOCTYPE html><html><head>${this.headContent}</head><body><main>${this.renderComponents('main')}${this.newBar('main')}</main></body></html>`
