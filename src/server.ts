@@ -1,10 +1,9 @@
-import type { Component, Page, APIClient, ResourceProvider } from '@dosgato/templating'
+import { createReadStream, readFileSync } from 'node:fs'
+import { constants, brotliCompress, gzip } from 'node:zlib'
+import type { APIClient, ResourceProvider } from '@dosgato/templating'
 import cookie from '@fastify/cookie'
-import { Blob } from 'node:buffer'
-import { gzip } from 'node:zlib'
 import { type FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
-import { createReadStream, readFileSync } from 'node:fs'
 import htmldiff from 'node-htmldiff'
 import { isNotBlank, rescue } from 'txstate-utils'
 import { RenderingAPIClient, download } from './api.js'
@@ -41,10 +40,29 @@ async function checkApiHealth () {
   return resp.ok ? undefined : { status: resp.status, message: await resp.text() }
 }
 
+async function compress (data: string) {
+  const [gzipBuffer, brotliBuffer] = await Promise.all([
+    new Promise<Buffer>((resolve, reject) => {
+      gzip(data, (err, result) => {
+        if (err) reject(err)
+        else resolve(result)
+      })
+    }),
+    new Promise<Buffer>((resolve, reject) => {
+      brotliCompress(data, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }, (err, result) => {
+        if (err) reject(err)
+        else resolve(result)
+      })
+    })
+  ])
+  return { raw: data, gzip: gzipBuffer, brotli: brotliBuffer }
+}
+
 export class RenderingServer extends Server {
   private APIClient!: APIClientClass
-  protected spinner?: string
-  protected spinnerGzip?: Buffer
+  protected spinner?: { raw: string, gzip: Buffer, brotli: Buffer }
+  protected editorJs?: { raw: string, gzip: Buffer, brotli: Buffer }
+  protected editorCss?: { raw: string, gzip: Buffer, brotli: Buffer }
 
   constructor (config?: FastifyTxStateOptions) {
     const existingCheckOrigin = config?.checkOrigin
@@ -197,25 +215,35 @@ export class RenderingServer extends Server {
     /**
      * Route for serving JS that supports the editing UI
      */
-    const editingJs = readFileSync(new URL('./static/editing.js', import.meta.url))
-    const editingJsSize = new Blob([editingJs]).size
     this.app.get('/.editing/:version/edit.js', async (req, res) => {
       void res.header('Content-Type', 'application/javascript')
-      void res.header('Content-Length', editingJsSize)
       void res.header('Cache-Control', 'max-age=31536000, immutable')
-      return editingJs
+      if (/\bbr\b/.test(req.headers['accept-encoding'] ?? '')) {
+        void res.header('Content-Encoding', 'br')
+        return this.editorJs!.brotli
+      }
+      if (/\bgzip\b/.test(req.headers['accept-encoding'] ?? '')) {
+        void res.header('Content-Encoding', 'gzip')
+        return this.editorJs!.gzip
+      }
+      return this.editorJs!.raw
     })
 
     /**
      * Route for serving CSS that supports the editing UI
      */
-    const editingCss = readFileSync(new URL('./static/editing.css', import.meta.url))
-    const editingCssSize = new Blob([editingCss]).size
     this.app.get('/.editing/:version/edit.css', async (req, res) => {
       void res.header('Content-Type', 'text/css')
-      void res.header('Content-Length', editingCssSize)
       void res.header('Cache-Control', 'max-age=31536000, immutable')
-      return editingCss
+      if (/\bbr\b/.test(req.headers['accept-encoding'] ?? '')) {
+        void res.header('Content-Encoding', 'br')
+        return this.editorCss!.brotli
+      }
+      if (/\bgzip\b/.test(req.headers['accept-encoding'] ?? '')) {
+        void res.header('Content-Encoding', 'gzip')
+        return this.editorCss!.gzip
+      }
+      return this.editorCss!.raw
     })
 
     /**
@@ -246,12 +274,15 @@ export class RenderingServer extends Server {
     this.app.get('/.spinner', async (req, res) => {
       void res.type('text/html')
       void res.header('Cache-Control', 'public, max-age=300')
-      if (req.headers['accept-encoding']?.includes('gzip')) {
-        void res.header('Content-Encoding', 'gzip')
-        void res.header('Content-Length', this.spinnerGzip!.byteLength)
-        return this.spinnerGzip!
+      if (/\bbr\b/.test(req.headers['accept-encoding'] ?? '')) {
+        void res.header('Content-Encoding', 'br')
+        return this.spinner!.brotli
       }
-      return this.spinner!
+      if (/\bgzip\b/.test(req.headers['accept-encoding'] ?? '')) {
+        void res.header('Content-Encoding', 'gzip')
+        return this.spinner!.gzip
+      }
+      return this.spinner!.raw
     })
 
     this.app.get<{ Querystring: any, Params: { '*': string } }>('/.page/*', async (req, res) => {
@@ -316,23 +347,22 @@ export class RenderingServer extends Server {
       templateRegistry.registerSass(p)
     }
     const spinnerhtml = readFileSync(new URL('./static/spinner.html', import.meta.url)).toString('utf-8')
-    this.spinner = spinnerhtml
       .replace(/\/\*\*top\*\*\/white/g, opts?.spinnerColors?.top ?? '#757575')
       .replace(/\/\*\*bottom\*\*\/white/g, opts?.spinnerColors?.bottom ?? '#757575')
       .replace(/\/\*\*left\*\*\/black/g, opts?.spinnerColors?.left ?? '#ccc')
       .replace(/\/\*\*right\*\*\/black/g, opts?.spinnerColors?.right ?? '#ccc')
-    const spinnerGzipPromise = new Promise<Buffer>((resolve, reject) => {
-      gzip(this.spinner!, (err, result) => {
-        if (err) reject(err)
-        else resolve(result)
-      })
-    })
+    const spinnerPromise = compress(spinnerhtml)
+    const editorJsPromise = compress(readFileSync(new URL('./static/editing.js', import.meta.url)).toString('utf-8'))
+    const editorCssPromise = compress(readFileSync(new URL('./static/editing.css', import.meta.url)).toString('utf-8'))
+
     await Promise.all([
       ...(opts?.providers ?? []).map(async p => await this.addProvider(p)),
       ...(opts?.templates ?? []).map(async t => await this.addTemplate(t))
     ])
-    this.spinnerGzip = await spinnerGzipPromise
 
+    this.spinner = await spinnerPromise
+    this.editorJs = await editorJsPromise
+    this.editorCss = await editorCssPromise
     await super.start(opts?.port)
   }
 
