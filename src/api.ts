@@ -445,7 +445,14 @@ export class RenderingAPIClient implements APIClient {
     (path && await this.dlf.get(pageByPathLoader).load(path)) ??
     (link && await this.dlf.get(pageByLinkLoader).load(link as PageLink))
     if (!page) return undefined
-    return { ...page, title: isBlank(page.data.title) ? titleCase(page.name) : page.data.title }
+    return { ...page, title: page.fallbackTitle }
+  }
+
+  async getPageNoData ({ link }: { link: string | PageLinkWithContext }) {
+    link = typeof link === 'string' ? JSON.parse(link) : link
+    const page = await this.dlf.get(pageByLinkWithoutData).load(link as PageLink)
+    if (!page) return undefined
+    return { ...page, title: page.fallbackTitle }
   }
 
   async getNavigation (opts?: { beneath?: string, depth?: number, extra?: string[], absolute?: boolean, published?: boolean, maxChildren?: number, tagsAny?: string[], filter?: (page: PageForNavigation) => boolean | undefined }) {
