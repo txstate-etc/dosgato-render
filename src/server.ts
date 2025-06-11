@@ -30,7 +30,7 @@ export interface RenderingServerOptions {
    *
    * Remember to use new URL('./yourpath', import.meta.url).toString('utf-8')) to resolve the path
    */
-  spinner?: string
+  spinner?: URL
 }
 
 async function checkApiHealth () {
