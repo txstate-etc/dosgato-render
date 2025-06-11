@@ -26,11 +26,11 @@ export interface RenderingServerOptions {
   providers?: (typeof ResourceProvider)[]
   CustomAPIClient?: APIClientClass
   /**
-   * We use a four-color spinner in the editing UI for pages that take longer than 500ms to
-   * load. The default is a gray spinner, but you may specify the four colors in hex format
-   * (e.g. #000000) or as a color name (e.g. red).
+   * The full path to a spinner HTML file that will be served at /spinner
+   *
+   * Remember to use new URL('./yourpath', import.meta.url).toString('utf-8')) to resolve the path
    */
-  spinnerColors?: { top: string, bottom: string, left: string, right: string }
+  spinner?: string
 }
 
 async function checkApiHealth () {
@@ -271,9 +271,9 @@ export class RenderingServer extends Server {
       return resp
     })
 
-    this.app.get('/.spinner', async (req, res) => {
+    this.app.get('/.editing/:version/spinner.html', async (req, res) => {
       void res.type('text/html')
-      void res.header('Cache-Control', 'public, max-age=300')
+      void res.header('Cache-Control', 'max-age=31536000, immutable')
       if (/\bbr\b/.test(req.headers['accept-encoding'] ?? '')) {
         void res.header('Content-Encoding', 'br')
         return this.spinner!.brotli
@@ -346,11 +346,7 @@ export class RenderingServer extends Server {
     for (const p of [...(opts?.providers ?? []), ...(opts?.templates ?? [])]) {
       templateRegistry.registerSass(p)
     }
-    const spinnerhtml = readFileSync(new URL('./static/spinner.html', import.meta.url)).toString('utf-8')
-      .replace(/\/\*\*top\*\*\/white/g, opts?.spinnerColors?.top ?? '#757575')
-      .replace(/\/\*\*bottom\*\*\/white/g, opts?.spinnerColors?.bottom ?? '#757575')
-      .replace(/\/\*\*left\*\*\/black/g, opts?.spinnerColors?.left ?? '#ccc')
-      .replace(/\/\*\*right\*\*\/black/g, opts?.spinnerColors?.right ?? '#ccc')
+    const spinnerhtml = readFileSync(opts?.spinner ?? new URL('./static/spinner.html', import.meta.url)).toString('utf-8')
     const spinnerPromise = compress(spinnerhtml)
     const editorJsPromise = compress(readFileSync(new URL('./static/editing.js', import.meta.url)).toString('utf-8'))
     const editorCssPromise = compress(readFileSync(new URL('./static/editing.css', import.meta.url)).toString('utf-8'))
