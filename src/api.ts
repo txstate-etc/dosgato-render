@@ -8,7 +8,7 @@ import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
 import { type IncomingMessage, get as httpGet, type IncomingHttpHeaders } from 'node:http'
 import { get as httpsGet } from 'node:https'
-import HttpAgent, { HttpsAgent } from 'agentkeepalive'
+import { HttpAgent, HttpsAgent } from 'agentkeepalive'
 
 const SITE_INFO = 'site { id name launched url { path prefix } }'
 

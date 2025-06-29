@@ -7,7 +7,7 @@ import { readFileSync, statSync } from 'fs'
 import mime from 'mime-types'
 import { compileString } from 'sass'
 import semver from 'semver'
-import { isBlank, isNotBlank } from 'txstate-utils'
+import { isBlank, isNotBlank, rescue } from 'txstate-utils'
 import { type RenderingAPIClient } from './api.js'
 import { resourceversion } from './version.js'
 
@@ -163,9 +163,14 @@ export class TemplateRegistry {
       const existing = this.files.get(key)
       if (!existing || versionGreater(block.version, existing.version)) {
         const stat = statSync(block.path)
-        if (!block.mime) block.mime = (await fileTypeFromFile(block.path))?.mime
-        if (!block.mime) continue // no mime type, no file
+        try {
+          if (!block.mime) block.mime = (await fileTypeFromFile(block.path))?.mime
+          if (!block.mime) throw new Error('blank mime type from file-type')
+        } catch (e: any) {
+          throw new Error(`Failed to determine MIME type for file ${block.path}: ${e.message}`)
+        }
         const ext = mime.extension(block.mime)
+        if (ext && !block.path.endsWith('.' + ext)) console.warn(`File ${block.path} has MIME type ${block.mime} but does not have the expected extension .${ext}.`)
         this.files.set(key, { ...block as Required<FileDeclaration>, size: stat.size, extension: ext || undefined })
 
         // write back to the component's `webpaths` property so it will know where its files
