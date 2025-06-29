@@ -2,13 +2,13 @@ import { type PageRecord, Page, type Component, type ResourceProvider, type Comp
 import { type Cheerio, load } from 'cheerio'
 import type { Element } from 'domhandler'
 import { transform } from 'esbuild'
-import { fileTypeFromFile } from 'file-type'
 import { readFileSync, statSync } from 'fs'
 import mime from 'mime-types'
 import { compileString } from 'sass'
 import semver from 'semver'
-import { isBlank, isNotBlank, rescue } from 'txstate-utils'
+import { isBlank, isNotBlank } from 'txstate-utils'
 import { type RenderingAPIClient } from './api.js'
+import { detectMimeType } from './util.js'
 import { resourceversion } from './version.js'
 
 function versionGreater (v2: string | undefined, v1: string | undefined) {
@@ -164,10 +164,14 @@ export class TemplateRegistry {
       if (!existing || versionGreater(block.version, existing.version)) {
         const stat = statSync(block.path)
         try {
-          if (!block.mime) block.mime = (await fileTypeFromFile(block.path))?.mime
+          if (!block.mime) block.mime = await detectMimeType(block.path)
           if (!block.mime) throw new Error('blank mime type from file-type')
         } catch (e: any) {
           throw new Error(`Failed to determine MIME type for file ${block.path}: ${e.message}`)
+        }
+        const mimeGuess = mime.lookup(block.path)
+        if (mimeGuess && (block.mime === 'application/octet-stream' || block.mime.startsWith('plain/text'))) {
+          block.mime = mimeGuess
         }
         const ext = mime.extension(block.mime)
         if (ext && !block.path.endsWith('.' + ext)) console.warn(`File ${block.path} has MIME type ${block.mime} but does not have the expected extension .${ext}.`)
