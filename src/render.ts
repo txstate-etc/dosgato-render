@@ -241,7 +241,8 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   for (const { block } of normalCssBlocks) {
     for (const fontfile of block.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
   }
-  pageComponent.headContent = (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>` : '') + [
+  pageComponent.headContent = (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>\n` : '') +
+    (api.context === 'live' ? `<link rel="canonical" href="${api.getHref(page, { absolute: true, extension: 'html' })}">\n` : '') + [
     ...normalCssBlocks.map(({ name, block }) =>
       `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block.async ? ' media="print" onload="this.media=all"' : ''}>`
     ),
