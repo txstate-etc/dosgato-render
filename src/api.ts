@@ -522,19 +522,20 @@ export class RenderingAPIClient implements APIClient {
     if (['data', 'datafolder', 'assetfolder'].includes(link.type)) return { broken: true }
     if (link.type === 'page') {
       const hash = isNotBlank(link.hash) ? '#' + link.hash.replace(/^#/, '') : ''
+      const query = isNotBlank(link.query) ? '?' + link.query.replace(/^\?/, '') : ''
       const target = await this.dlf.get(pageByLinkWithoutData).load(link)
       if (!target) {
         // link is to a page we can't find, but we'll try to return something readable even though it's broken
         if (this.context === 'live') {
           if (this.sitename && link.path.startsWith('/' + this.sitename)) {
-            return { href: shiftPath(link.path) + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+            return { href: shiftPath(link.path) + query + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
           } else {
-            return { href: link.path + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+            return { href: link.path + query + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
           }
         }
-        return { href: this.getPreviewLink(link.path, rOpts) + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
+        return { href: this.getPreviewLink(link.path, rOpts) + query + hash, title: titleCase(link.path.split('/').slice(-1)[0]), broken: true }
       }
-      return { href: this.getHref(target, opts) + hash, title: target.fallbackTitle, broken: false }
+      return { href: this.getHref(target, opts) + query + hash, title: target.fallbackTitle, broken: false }
     } else if (link.type === 'asset') {
       const target = await this.getAssetByLink(link)
       if (!target) {
@@ -542,12 +543,13 @@ export class RenderingAPIClient implements APIClient {
       }
       return { href: this.assetHref(target), title: titleCase(target.name), broken: false }
     } else if (link.type === 'url' && link.url?.startsWith('/')) {
-      const [path, hash] = link.url.split('#')
+      const [pathWithQuery, hash] = link.url.split('#')
+      const [path, query] = pathWithQuery.split('?')
       let target = await this.dlf.get(pageByLinkWithoutData).load({ type: 'page', linkId: 'unavailable', path, siteId: this.siteId! })
       if (!target) target = await this.dlf.get(pageByPathLoader).load(path)
       // don't allow a link to another pagetree in the same site
       if (!target || (target.site.id === this.siteId && target.pagetree.id !== this.pagetreeId)) return { href: link.url, broken: true }
-      return { href: this.getHref(target, opts) + (isNotBlank(hash) ? '#' + hash : ''), title: target.fallbackTitle, broken: false }
+      return { href: this.getHref(target, opts) + (isNotBlank(query) ? '?' + query : '') + (isNotBlank(hash) ? '#' + hash : ''), title: target.fallbackTitle, broken: false }
     }
     if (link.type === 'url') return { href: link.url, broken: false }
     return { broken: true }
