@@ -1,4 +1,4 @@
-import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord, type DataData, type DataFolderLink, type DataLink, extractLinksFromText, type LinkDefinition, type PageData, type PageForNavigation, type PageLink, type PageLinkWithContext, type PageRecord, type PictureAttributes, type SiteInfo, type DataRecord } from '@dosgato/templating'
+import { type APIClient, type AssetFolderLink, type AssetLink, type AssetRecord, type DataData, type DataFolderLink, type DataLink, extractLinksFromText, type LinkDefinition, type PageData, type PageForNavigation, type PageLink, type PageLinkWithContext, type PageRecord, type PictureAttributes, type SiteInfo, type DataRecord, ResourceProvider } from '@dosgato/templating'
 import { BestMatchLoader, DataLoaderFactory, ManyJoinedLoader, OneToManyLoader, PrimaryKeyLoader } from 'dataloader-factory'
 import type { FastifyRequest } from 'fastify'
 import { SignJWT } from 'jose'
@@ -611,6 +611,12 @@ export class RenderingAPIClient implements APIClient {
       }
       return { href: resolvedPath + '.' + rOpts.extension, broken: false }
     }
+  }
+
+  getProvidedFileHref (name: string, opts?: { absolute?: boolean }) {
+    if (!opts?.absolute) return ResourceProvider.webpath(name)
+    if (this.context === 'live') return this.contextOrigin + ResourceProvider.webpath(name)
+    return resolvePath(this.contextOrigin, RenderingAPIClient.contextPath + ResourceProvider.webpath(name))
   }
 
   async scanForLinks (text: string | undefined, opts?: { absolute?: boolean }) {
