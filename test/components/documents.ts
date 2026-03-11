@@ -10,7 +10,6 @@ export class DocumentsTemplate extends Component<DocumentsData, { assets: AssetR
 
   async fetch () {
     const assets = await this.api.getAssetsByLink(this.data.assetfolder)
-    console.log(this.data.assetfolder, assets)
     return { assets }
   }
 
