@@ -6,6 +6,7 @@ import { resourceversion } from './version.js'
 import { type RenderingAPIClient } from './api.js'
 import { htmlEncode, clone } from 'txstate-utils'
 import { mimeTypes } from './mimetypes.js'
+import { stripTrackerParams } from './util.js'
 
 // recursive helper function to traverse a hydrated page and return a flat array
 // of Component instances
@@ -242,7 +243,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
     for (const fontfile of block.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
   }
   pageComponent.headContent = (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>\n` : '') +
-    (api.context === 'live' ? `<link rel="canonical" href="${api.getHref(page, { absolute: true, extension: 'html' })}${htmlEncode(new URL(req.url, 'https://example.com').search)}">\n` : '') + [
+    (api.context === 'live' ? `<link rel="canonical" href="${api.getHref(page, { absolute: true, extension: 'html' }).replace(/^(https?:\/\/[^/]+)$/, '$1/')}${htmlEncode(stripTrackerParams(new URL(req.url, 'https://example.com').search))}">\n` : '') + [
     ...normalCssBlocks.map(({ name, block }) =>
       `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block.async ? ' media="print" onload="this.media=all"' : ''}>`
     ),
