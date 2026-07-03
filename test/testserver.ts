@@ -7,6 +7,8 @@ import { LinkTemplate } from './components/link.js'
 import { PanelTemplate } from './components/panel.js'
 import { QuoteTemplate } from './components/quote.js'
 import { RichTextTemplate } from './components/richtext.js'
+import { TeamTemplate } from './components/team.js'
+import { TeamMemberTemplate } from './components/teammember.js'
 import { TextImageTemplate } from './components/textimage.js'
 import { PageTemplate1 } from './pages/keyp1.js'
 import { PageTemplate2 } from './pages/keyp2.js'
@@ -27,7 +29,9 @@ await server.start({
     HorizontalRuleTemplate,
     TextImageTemplate,
     ColumnLayoutTemplate,
-    DocumentsTemplate
+    DocumentsTemplate,
+    TeamTemplate,
+    TeamMemberTemplate
   ]
 })
 console.info('service started with resourceversion =', resourceversion)
