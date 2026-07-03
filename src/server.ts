@@ -1,8 +1,10 @@
 import { createReadStream, readFileSync } from 'node:fs'
+import { Readable } from 'node:stream'
+import { type ReadableStream as WebReadableStream } from 'node:stream/web'
 import { constants, brotliCompress, gzip } from 'node:zlib'
 import type { APIClient, ResourceProvider } from '@dosgato/templating'
 import cookie from '@fastify/cookie'
-import { type FastifyRequest } from 'fastify'
+import { type FastifyReply, type FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import htmldiff from 'node-htmldiff'
 import { isNotBlank, rescue } from 'txstate-utils'
@@ -38,6 +40,17 @@ async function checkApiHealth () {
   if (!localApiBase) return
   const resp = await fetch(localApiBase + '/health')
   return resp.ok ? undefined : { status: resp.status, message: await resp.text() }
+}
+
+async function proxy (resp: Response, res: FastifyReply) {
+  for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
+    const header = resp.headers.get(h)
+    if (header) void res.header(h, header)
+  }
+  void res.status(resp.status)
+  // stream the body through chunk by chunk instead of buffering it
+  if (resp.body) return await res.send(Readable.fromWeb(resp.body as WebReadableStream))
+  return await res.send()
 }
 
 async function compress (data: string) {
@@ -263,12 +276,7 @@ export class RenderingServer extends Server {
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
       query.set('admin', '1')
       const resp = await download(`${process.env.DOSGATO_API_BASE!}/assets/${encodeURI(req.params['*'])}?${query.toString()}`, token, req.headers)
-      for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
-        const header = resp.headers[h.toLowerCase()]
-        if (header) void res.header(h, header)
-      }
-      void res.status(resp.statusCode ?? 500)
-      return resp
+      return await proxy(resp, res)
     })
 
     this.app.get('/.editing/:version/spinner.html', async (req, res) => {
@@ -289,12 +297,7 @@ export class RenderingServer extends Server {
       const token = getToken(req)
       const query = new URLSearchParams((req.query ?? {}) as Record<string, string>)
       const resp = await download(`${process.env.DOSGATO_API_BASE!}/pages/${encodeURI(req.params['*'])}?${query.toString()}`, token, req.headers)
-      for (const h of ['Last-Modified', 'Etag', 'Cache-Control', 'Content-Type', 'Content-Disposition', 'Content-Length', 'Location']) {
-        const header = resp.headers[h.toLowerCase()]
-        if (header) void res.header(h, header)
-      }
-      void res.status(resp.statusCode ?? 500)
-      return resp
+      return await proxy(resp, res)
     })
 
     this.app.get('/favicon.ico', async () => {

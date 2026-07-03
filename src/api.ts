@@ -6,9 +6,7 @@ import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringi
 import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
-import { type IncomingMessage, get as httpGet, type IncomingHttpHeaders } from 'node:http'
-import { get as httpsGet } from 'node:https'
-import { HttpAgent, HttpsAgent } from 'agentkeepalive'
+import { type IncomingHttpHeaders } from 'node:http'
 
 const SITE_INFO = 'site { id name launched url { path prefix } }'
 
@@ -781,12 +779,17 @@ export class RenderingAPIClient implements APIClient {
   }
 }
 
-const httpAgent = new HttpAgent({ maxSockets: 50 })
-const httpsAgent = new HttpsAgent({ maxSockets: 50 })
 export async function download (url: string, token: string | undefined, headers: IncomingHttpHeaders) {
-  const get = url.startsWith('https:') ? httpsGet : httpGet
-  const agent = url.startsWith('https:') ? httpsAgent : httpAgent
-  return await new Promise<IncomingMessage>((resolve, reject) => {
-    get(url, { headers: { ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match', 'traceparent'), Authorization: `Bearer ${token ?? anonToken}` }, agent }, resolve).on('error', reject)
+  return await fetch(url, {
+    // the API's response, including any redirect, gets proxied to the end user, so we
+    // must not follow redirects here
+    redirect: 'manual',
+    headers: {
+      ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match', 'traceparent') as Record<string, string>,
+      // fetch would otherwise ask for compression and transparently decompress, which
+      // would make the API's Content-Length header wrong when we proxy it through
+      'accept-encoding': 'identity',
+      Authorization: `Bearer ${token ?? anonToken}`
+    }
   })
 }
