@@ -1,9 +1,9 @@
 import { Component, type PageRecord, type ComponentData, type EditBarOpts, type RenderedComponent, type NewBarOpts, type ContextBase } from '@dosgato/templating'
-import { type FastifyRequest, type FastifyReply } from 'fastify'
-import { type ParsedUrlQuery } from 'querystring'
+import type { FastifyRequest, FastifyReply } from 'fastify'
+import type { ParsedUrlQuery } from 'node:querystring'
 import { type RegistryCSSBlock, templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
-import { type RenderingAPIClient } from './api.js'
+import type { RenderingAPIClient } from './api.js'
 import { htmlEncode, clone } from 'txstate-utils'
 import { mimeTypes } from './mimetypes.js'
 import { stripTrackerParams } from './util.js'
@@ -200,7 +200,7 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
               c.reqHeaders = req.headers
               c.reqQuery = req.query as ParsedUrlQuery
               c.autoLabel = templateByKey[c.data.templateKey]?.name
-              c.registerInherited = () => {} // inherited components cannot inherit further components
+              c.registerInherited = () => { /* inherited components cannot inherit further components */ }
             }
             extraComponents.push(...hydratedPlusSubComponents)
             if (entry.mode === 'top') c.areas.get(entry.area)!.splice(i, 0, hydrated)
@@ -242,8 +242,8 @@ export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, 
   for (const { block } of normalCssBlocks) {
     for (const fontfile of block.fontfiles ?? []) fontfiles.set(fontfile.href, fontfile)
   }
-  pageComponent.headContent = (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>\n` : '') +
-    (api.context === 'live' ? `<link rel="canonical" href="${api.getHref(page, { absolute: true, extension: 'html' }).replace(/^(https?:\/\/[^/]+)$/, '$1/')}${htmlEncode(stripTrackerParams(new URL(req.url, 'https://example.com').search))}">\n` : '') + [
+  pageComponent.headContent = (editMode ? editModeIncludes() + `<script>window.dgEditingBlocks = ${JSON.stringify(editCssBlocks.map(b => b.name))}</script>\n` : '')
+    + (api.context === 'live' ? `<link rel="canonical" href="${api.getHref(page, { absolute: true, extension: 'html' }).replace(/^(https?:\/\/[^/]+)$/, '$1/')}${htmlEncode(stripTrackerParams(new URL(req.url, 'https://example.com').search))}">\n` : '') + [
     ...normalCssBlocks.map(({ name, block }) =>
       `<link rel="stylesheet" href="/.resources/${resourceversion}/${name}.css"${block.async ? ' media="print" onload="this.media=all"' : ''}>`
     ),

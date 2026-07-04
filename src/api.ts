@@ -6,7 +6,7 @@ import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringi
 import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
 import { HttpError } from 'fastify-txstate'
-import { type IncomingHttpHeaders } from 'node:http'
+import type { IncomingHttpHeaders } from 'node:http'
 
 const SITE_INFO = 'site { id name launched url { path prefix } }'
 
@@ -116,8 +116,8 @@ const assetDetails = 'id linkId path checksum name extension filename mime size 
 const assetByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetLink[], api: RenderingAPIClient) => {
     const { assets } = await api.query<{ assets: FetchedAsset[] }>(
-      `query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { ${assetDetails} } }`
-      , { links: links.map(l => ({ ...pick(l, 'path', 'checksum', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
+      `query getAssetByLink ($links: [AssetLinkInput!]!) { assets (filter: { links: $links }) { ${assetDetails} } }`,
+      { links: links.map(l => ({ ...pick(l, 'path', 'checksum', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
     return assets.map(a => ({ ...a, contextPagetreeId: api.pagetreeId }))
   },
   scoreMatch: (link, asset: FetchedAsset & { contextPagetreeId?: string }) => {
@@ -135,8 +135,8 @@ const assetsByFolderPathLoader = new ManyJoinedLoader({
       ? `query getAssetByLink ($paths: [UrlSafePath!]!) { assets (filter: { beneath: $paths }) { ${assetDetails} } }`
       : `query getAssetByLink ($paths: [UrlSafePath!]!) { assets (filter: { parentPaths: $paths }) { ${assetDetails} } }`
     const { assets } = await api.query<{ assets: FetchedAsset[] }>(
-      query
-      , { paths })
+      query,
+      { paths })
     if (filters.recursive) return paths.flatMap(path => assets.filter(a => a.path.startsWith(path + '/')).map(a => ({ key: path, value: a })))
     else {
       const assetsPlusFolderPath = assets.map(a => ({ ...a, folderPath: a.path.split('/').slice(0, -1).join('/') }))
@@ -148,8 +148,8 @@ const assetsByFolderPathLoader = new ManyJoinedLoader({
 const assetfoldersByLinkLoader = new BestMatchLoader({
   fetch: async (links: AssetFolderLink[], api: RenderingAPIClient) => {
     const { assetfolders } = await api.query<{ assetfolders: { id: string, linkId: string, path: string, site: { id: string, name: string } }[] }>(
-      'query getAssetsByFolderLink ($links: [AssetFolderLinkInput!]!) { assetfolders (filter: { links: $links }) { id linkId path site { id name } } }'
-      , { links: links.map(l => ({ ...pick(l, 'path', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
+      'query getAssetsByFolderLink ($links: [AssetFolderLinkInput!]!) { assetfolders (filter: { links: $links }) { id linkId path site { id name } } }',
+      { links: links.map(l => ({ ...pick(l, 'path', 'siteId'), linkId: l.id, context: { pagetreeId: api.pagetreeId } })) })
     return assetfolders
   },
   scoreMatch: (link, folder) => folder.linkId === link.id ? 2 : (matchAssetPath(link, folder) ? 1 : 0)
@@ -168,21 +168,21 @@ query getAncestorPages ($ids: [ID!], $paths: [UrlSafePath!], $schemaversion: Dat
 interface PageWithAncestors {
   id: string
   path: string
-  ancestors: PageRecord<PageData>[]
+  ancestors: PageRecord[]
 }
 const ancestorsByIdLoader = new PrimaryKeyLoader({
   fetch: async (ids: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageWithAncestors[] }>(ANCESTOR_QUERY, { ids, schemaversion, published: api.published })
     return pages
   },
-  extractId: (pageWithAncestors) => pageWithAncestors.id
+  extractId: pageWithAncestors => pageWithAncestors.id
 })
 const ancestorsByPathLoader = new PrimaryKeyLoader({
   fetch: async (paths: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageWithAncestors[] }>(ANCESTOR_QUERY, { paths, schemaversion, published: api.published })
     return pages
   },
-  extractId: (pageWithAncestors) => pageWithAncestors.path,
+  extractId: pageWithAncestors => pageWithAncestors.path,
   idLoader: ancestorsByIdLoader
 })
 ancestorsByIdLoader.addIdLoader(ancestorsByPathLoader)
@@ -200,10 +200,10 @@ query getRootPage ($ids: [ID!], $paths: [UrlSafePath!], $schemaversion: DateTime
 interface PageWithRoot {
   id: string
   path: string
-  rootpage: PageRecord<PageData>
+  rootpage: PageRecord
 }
 
-function processPageRecord <T extends Omit<PageRecord<PageData>, 'data'>> (page: T): T {
+function processPageRecord<T extends Omit<PageRecord, 'data'>> (page: T): T {
   return {
     ...page,
     createdAt: new Date(page.createdAt),
@@ -217,14 +217,14 @@ const rootPageByIdLoader = new PrimaryKeyLoader({
     const { pages } = await api.query<{ pages: PageWithRoot[] }>(ROOTPAGE_QUERY, { ids, schemaversion, published: api.published })
     return pages.map(pwr => ({ ...pwr, rootpage: processPageRecord(pwr.rootpage) }))
   },
-  extractId: (pageWithRoot) => pageWithRoot.id
+  extractId: pageWithRoot => pageWithRoot.id
 })
 const rootPageByPathLoader = new PrimaryKeyLoader({
   fetch: async (paths: string[], api: RenderingAPIClient) => {
     const { pages } = await api.query<{ pages: PageWithRoot[] }>(ROOTPAGE_QUERY, { paths, schemaversion, published: api.published })
     return pages.map(pwr => ({ ...pwr, rootpage: processPageRecord(pwr.rootpage) }))
   },
-  extractId: (pageWithRoot) => pageWithRoot.path,
+  extractId: pageWithRoot => pageWithRoot.path,
   idLoader: rootPageByIdLoader
 })
 rootPageByIdLoader.addIdLoader(rootPageByPathLoader)
@@ -276,14 +276,14 @@ const pageByPathLoader = new PrimaryKeyLoader({
 })
 pageByIdLoader.addIdLoader(pageByPathLoader)
 
-function pageLinkScorer (link: PageLink, page: Omit<PageRecord<PageData>, 'data'> & { contextPagetreeId?: string }) {
+function pageLinkScorer (link: PageLink, page: Omit<PageRecord, 'data'> & { contextPagetreeId?: string }) {
   let score = link.siteId === page.site.id ? 20 : 0
   score += page.publishedAt ? 10 : 0
   if (link.linkId === page.linkId) return 2 + score
   if (shiftPath(link.path) === shiftPath(page.path)) return 1 + score
   return 0
 }
-const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord<PageData>, 'data'>>({
+const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord, 'data'>>({
   fetch: async (links, api: RenderingAPIClient) => {
     const pageLinks = links.filter(l => l.type === 'page').map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
     const { pages } = await api.query<{ pages: PageWithNoData[] }>(PAGE_QUERY_NO_DATA, { links: pageLinks })
@@ -294,7 +294,7 @@ const pageByLinkWithoutData = new BestMatchLoader<PageLink, Omit<PageRecord<Page
 const pageByLinkLoader = new BestMatchLoader<PageLink, PageRecord>({
   fetch: async (links, api: RenderingAPIClient) => {
     const pageLinks = links.filter(l => l.type === 'page').map(l => api.pagetreeId ? { ...pick(l, 'siteId', 'linkId', 'path'), context: { pagetreeId: api.pagetreeId } } : pick(l, 'siteId', 'linkId', 'path'))
-    const { pages } = await api.query<{ pages: PageRecord<PageData>[] }>(PAGE_QUERY, { links: pageLinks, published: api.published, schemaversion })
+    const { pages } = await api.query<{ pages: PageRecord[] }>(PAGE_QUERY, { links: pageLinks, published: api.published, schemaversion })
     return pages.map(processPageRecord)
   },
   scoreMatch: pageLinkScorer,
@@ -350,8 +350,8 @@ function fetchedDataToRecord (d: FetchedData): DataRecord {
 const dataByPathLoader = new OneToManyLoader({
   fetch: async (paths: string[], templateKey: string, api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      `query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!, $templateKey: ID!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED], templateKeys:[$templateKey] }) { ${dataDetails} } }`
-      , { paths, published: api.published, templateKey }
+      `query getDataByPath ($paths: [UrlSafePath!]!, $published: Boolean!, $templateKey: ID!) { data (filter: { beneathOrAt: $paths, published: $published, deleteStates: [NOTDELETED], templateKeys:[$templateKey] }) { ${dataDetails} } }`,
+      { paths, published: api.published, templateKey }
     )
     return data
   },
@@ -361,8 +361,8 @@ const dataByPathLoader = new OneToManyLoader({
 const dataByDataLinkLoader = new BestMatchLoader({
   fetch: async (links: DataLink[], api: RenderingAPIClient) => {
     const { data } = await api.query<{ data: FetchedData[] }>(
-      `query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published, deleteStates: [NOTDELETED] }) { ${dataDetails} } }`
-      , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
+      `query getDataByLink ($links: [DataLinkInput!]!, $published: Boolean!) { data (filter: { links: $links, published: $published, deleteStates: [NOTDELETED] }) { ${dataDetails} } }`,
+      { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return data
   },
   scoreMatch: (link, data) => {
@@ -391,8 +391,8 @@ export interface FetchedDataFolder {
 const dataFolderByFolderLinkLoader = new BestMatchLoader({
   fetch: async (links: DataFolderLink[], api: RenderingAPIClient) => {
     const { datafolders } = await api.query<{ datafolders: FetchedDataFolder[] }>(
-      `query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links, deleteStates: [NOTDELETED] }){ id name path template { key } site { id name } data(filter:{published:$published, deleteStates: [NOTDELETED]}) { ${dataDetails} } } }`
-      , { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
+      `query getDataFolderByLink ($links: [DataFolderLinkInput!]!, $published: Boolean!) { datafolders (filter: { links: $links, deleteStates: [NOTDELETED] }){ id name path template { key } site { id name } data(filter:{published:$published, deleteStates: [NOTDELETED]}) { ${dataDetails} } } }`,
+      { links: links.map(l => pick(l, 'id', 'siteId', 'path', 'templateKey')), published: api.published })
     return datafolders
   },
   scoreMatch: (link, folder) => {
@@ -424,24 +424,24 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async getAncestors ({ id, path }: { id?: string, path?: string }) {
-    const page = (id && await this.dlf.get(ancestorsByIdLoader).load(id)) ??
-      (path && await this.dlf.get(ancestorsByPathLoader).load(path))
+    const page = (id && await this.dlf.get(ancestorsByIdLoader).load(id))
+      ?? (path && await this.dlf.get(ancestorsByPathLoader).load(path))
     if (!page) throw new Error(`Unable to retrieve ancestors for id = ${id ?? ''}, path = ${path ?? ''}`)
     return page.ancestors
   }
 
   async getRootPage ({ id, path }: { id?: string, path?: string }) {
-    const page = (id && await this.dlf.get(rootPageByIdLoader).load(id)) ??
-      (path && await this.dlf.get(rootPageByPathLoader).load(path))
+    const page = (id && await this.dlf.get(rootPageByIdLoader).load(id))
+      ?? (path && await this.dlf.get(rootPageByPathLoader).load(path))
     if (!page) throw new Error(`Unable to retrieve root page for id = ${id ?? ''}, path = ${path ?? ''}`)
     return page.rootpage
   }
 
   async getPage ({ id, path, link }: { id?: string, path?: string, link?: string | PageLinkWithContext }) {
     link = typeof link === 'string' ? JSON.parse(link) : link
-    const page = (id && await this.dlf.get(pageByIdLoader).load(id)) ??
-    (path && await this.dlf.get(pageByPathLoader).load(path)) ??
-    (link && await this.dlf.get(pageByLinkLoader).load(link as PageLink))
+    const page = (id && await this.dlf.get(pageByIdLoader).load(id))
+      ?? (path && await this.dlf.get(pageByPathLoader).load(path))
+      ?? (link && await this.dlf.get(pageByLinkLoader).load(link as PageLink))
     if (!page) return undefined
     return { ...page, title: page.fallbackTitle }
   }
@@ -544,7 +544,7 @@ export class RenderingAPIClient implements APIClient {
       const [pathWithQuery, hash] = link.url.split('#')
       const [path, query] = pathWithQuery.split('?')
       let target = await this.dlf.get(pageByLinkWithoutData).load({ type: 'page', linkId: 'unavailable', path, siteId: this.siteId! })
-      if (!target) target = await this.dlf.get(pageByPathLoader).load(path)
+      target ??= await this.dlf.get(pageByPathLoader).load(path)
       // don't allow a link to another pagetree in the same site
       if (!target || (target.site.id === this.siteId && target.pagetree.id !== this.pagetreeId)) return { href: link.url, broken: true }
       return { href: this.getHref(target, opts) + (isNotBlank(query) ? '?' + query : '') + (isNotBlank(hash) ? '#' + hash : ''), title: target.fallbackTitle, broken: false }
@@ -648,7 +648,7 @@ export class RenderingAPIClient implements APIClient {
     return resizes.map(r => `${this.resizeHref(r, asset, absolute)} ${r.width}w`).join(', ')
   }
 
-  async getImgAttributes (link: string | AssetLink | undefined, absolute?: boolean | undefined): Promise<PictureAttributes | undefined> {
+  async getImgAttributes (link: string | AssetLink | undefined, absolute?: boolean): Promise<PictureAttributes | undefined> {
     if (!link) return undefined
     const asset = await this.getAssetByLink(link)
     if (!asset) {

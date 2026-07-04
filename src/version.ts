@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 /**
  * The rendering server needs to be locked at a particular schemaversion so that the rendering

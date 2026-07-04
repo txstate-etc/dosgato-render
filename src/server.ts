@@ -1,10 +1,10 @@
 import { createReadStream, readFileSync } from 'node:fs'
 import { Readable } from 'node:stream'
-import { type ReadableStream as WebReadableStream } from 'node:stream/web'
+import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { constants, brotliCompress, gzip } from 'node:zlib'
 import type { APIClient, ResourceProvider } from '@dosgato/templating'
 import cookie from '@fastify/cookie'
-import { type FastifyReply, type FastifyRequest } from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 import Server, { type FastifyTxStateOptions, HttpError } from 'fastify-txstate'
 import htmldiff from 'node-htmldiff'
 import { isNotBlank, rescue } from 'txstate-utils'
@@ -20,6 +20,7 @@ function getToken (req: FastifyRequest<{ Querystring: { token?: string } }>) {
   return req.cookies.dg_token
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- lets call sites choose their APIClient subclass without a cast
 type APIClientClass = new <T extends APIClient> (published: boolean, req: FastifyRequest) => T
 
 export interface RenderingServerOptions {
@@ -90,7 +91,7 @@ export class RenderingServer extends Server {
     }
     const existingCheckHealth = config?.checkHealth
     config.checkHealth = existingCheckHealth
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- checkHealth returns boolean, so `||` is intentional
       ? async () => (await existingCheckHealth()) || await checkApiHealth()
       : checkApiHealth
     super(config)

@@ -2,12 +2,12 @@ import { type PageRecord, Page, type Component, type ResourceProvider, type Comp
 import { type Cheerio, load } from 'cheerio'
 import type { Element } from 'domhandler'
 import { transform } from 'esbuild'
-import { readFileSync, statSync } from 'fs'
+import { readFileSync, statSync } from 'node:fs'
 import mime from 'mime-types'
 import { compileString } from 'sass'
 import semver from 'semver'
 import { isBlank, isNotBlank } from 'txstate-utils'
-import { type RenderingAPIClient } from './api.js'
+import type { RenderingAPIClient } from './api.js'
 import { detectMimeType } from './util.js'
 import { resourceversion } from './version.js'
 
@@ -45,7 +45,7 @@ export interface RegistryFile extends FileDeclaration {
 
 export type RegistrySCSSInclude = SCSSInclude & { scss: string }
 
-function versionWarning <T extends JSBlock | CSSBlock> (existing: T | undefined, block: T, type: string, key: string) {
+function versionWarning<T extends JSBlock | CSSBlock> (existing: T | undefined, block: T, type: string, key: string) {
   if (existing && existing.version !== block.version) {
     const breaking = versionBreaking(existing.version, block.version)
     const log = breaking ? console.warn : console.info
@@ -76,7 +76,7 @@ function addHeaderClass (h: Cheerio<Element>, level: number, difference: number)
 function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: number, headerIndex: number, allHeaders: Cheerio<Element>, highestLevel: number) {
   while (headerIndex < allHeaders.length) {
     const h = allHeaders.eq(headerIndex)
-    const headerLevel = parseInt(h.get(0)!.tagName.substring(1))
+    const headerLevel = parseInt(h.get(0)!.tagName.substring(1), 10)
     const difference = highestLevel - 3
     if (headerLevel > parentLevel) {
       updateTag(h, currentLevel)
@@ -142,7 +142,7 @@ export class TemplateRegistry {
     await this.addProvider(template as any)
   }
 
-  async addProvider<T extends typeof ResourceProvider> (template: T) {
+  async addProvider (template: typeof ResourceProvider) {
     console.info('initializing template or resource provider', template.name)
     const promises: Promise<any>[] = []
     for (const [key, block] of template.jsBlocks.entries()) {
@@ -164,7 +164,7 @@ export class TemplateRegistry {
       if (!existing || versionGreater(block.version, existing.version)) {
         const stat = statSync(block.path)
         try {
-          if (!block.mime) block.mime = await detectMimeType(block.path)
+          block.mime ??= await detectMimeType(block.path)
           if (!block.mime) throw new Error('blank mime type from file-type')
         } catch (e: any) {
           throw new Error(`Failed to determine MIME type for file ${block.path}: ${e.message}`)
@@ -236,13 +236,13 @@ export class TemplateRegistry {
     return this.pages.get(templateKey) ?? this.components.get(templateKey)
   }
 
-  registerSass <T extends typeof ResourceProvider> (template: T) {
+  registerSass (template: typeof ResourceProvider) {
     for (const [key, block] of template.scssIncludes.entries()) {
       const existing = this.sassincludes.get(key)
       versionWarning(existing, block, 'SASS', key)
       if (!existing || versionGreater(block.version, existing.version)) {
         const finalBlock = block as RegistrySCSSInclude
-        finalBlock.scss = finalBlock.scss ?? readFileSync(finalBlock.path!, 'utf8')
+        finalBlock.scss ??= readFileSync(finalBlock.path!, 'utf8')
         this.sassincludes.set(key, finalBlock)
       }
     }

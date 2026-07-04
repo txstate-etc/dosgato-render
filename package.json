@@ -11,7 +11,7 @@
     "prepublishOnly": "npm run build",
     "build": "rm -rf dist && tsc && cp -R src/static dist/static",
     "watch": "nodemon --exec 'npm start' --ext ts,js,css,scss,html",
-    "lint": "eslint --ignore-path .gitignore .",
+    "lint": "eslint src test",
     "start": "node --no-warnings --enable-source-maps --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
@@ -30,10 +30,11 @@
     "wasmagic": "^1.0.1"
   },
   "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.0.0",
     "@types/mime-types": "^3.0.0",
     "@types/node": "^26.0.0",
     "@types/semver": "^7.3.9",
-    "eslint-config-standard-with-typescript": "^39.0.0",
+    "eslint-config-love": "^154.0.0",
     "nodemon": "^3.0.1",
     "ts-node": "^10.7.0",
     "typescript": "^6.0.3"

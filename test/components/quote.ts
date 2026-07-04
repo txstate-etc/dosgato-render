@@ -1,7 +1,7 @@
 import { Component, type ComponentData } from '@dosgato/templating'
-import path from 'path'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { htmlEncode } from 'txstate-utils'
-import { fileURLToPath } from 'url'
 
 export interface QuoteData extends ComponentData {
   author: string
