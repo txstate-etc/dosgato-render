@@ -38,7 +38,7 @@
     "eslint-config-standard-with-typescript": "^39.0.0",
     "nodemon": "^3.0.1",
     "ts-node": "^10.7.0",
-    "typescript": "^5.0.4"
+    "typescript": "^6.0.3"
   },
   "repository": {
     "type": "git",
@@ -55,5 +55,7 @@
     "url": "https://github.com/txstate-etc/dosgato-render/issues"
   },
   "homepage": "https://github.com/txstate-etc/dosgato-render#readme",
-  "files": ["dist"]
+  "files": [
+    "dist"
+  ]
 }
