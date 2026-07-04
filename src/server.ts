@@ -82,8 +82,8 @@ export class RenderingServer extends Server {
     config ??= {}
     config.checkOrigin = (req: FastifyRequest) => {
       if (existingCheckOrigin?.(req)) return true
-      if (req.routerPath === '/.editing/:version/edit.js' || req.routerPath === '/.edit/*') return true
-      if (req.routerPath === '/.resources/:version/:file') {
+      if (req.routeOptions.url === '/.editing/:version/edit.js' || req.routeOptions.url === '/.edit/*') return true
+      if (req.routeOptions.url === '/.resources/:version/:file') {
         return req.headers.origin === 'null'
       }
       return false
@@ -104,7 +104,7 @@ export class RenderingServer extends Server {
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.compare/' })
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.asset/' })
         void res.setCookie('dg_token', token, { httpOnly: true, sameSite: 'strict', path: '/.page/' })
-        const withoutToken = new URL(req.url, `${req.protocol}://${req.hostname}`)
+        const withoutToken = new URL(req.url, `${req.protocol}://${req.host}`)
         withoutToken.searchParams.delete('token')
         void res.redirect(withoutToken.toString(), 302)
       }
@@ -122,7 +122,7 @@ export class RenderingServer extends Server {
         const version = published || req.params.version === 'latest' ? undefined : parseInt(req.params.version, 10)
         if (version != null && isNaN(version)) throw new HttpError(404)
         const token = getToken(req)
-        if (!token && !published) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`, 302)
+        if (!token && !published) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.host}${req.url}`)}`, 302)
         const api = new this.APIClient<RenderingAPIClient>(!!published, req)
         api.context = 'preview'
         const page = await rescue(api.getPreviewPage(token, path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
@@ -142,7 +142,7 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         const token = getToken(req)
-        if (!token) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.hostname}${req.url}`)}`, 302)
+        if (!token) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.host}${req.url}`)}`, 302)
         const api = new this.APIClient<RenderingAPIClient>(false, req)
         api.context = 'preview'
         const fromVersionNum = parseInt(req.params.fromVersion, 10)
@@ -317,7 +317,7 @@ export class RenderingServer extends Server {
       const api = new this.APIClient<RenderingAPIClient>(true, req)
       api.context = 'live'
       const pagePath = (path === '/.root') ? '/' : path
-      const hostname = req.hostname.replace(/:\d+$/, '')
+      const hostname = req.hostname
       let page = await api.getLaunchedPage(hostname, pagePath, schemaversion)
       let usingDefault404 = false
       if (!page) {

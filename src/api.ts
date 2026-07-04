@@ -419,7 +419,7 @@ export class RenderingAPIClient implements APIClient {
   constructor (public published: boolean, req?: FastifyRequest) {
     // req is only undefined when we are querying a token
     // it will never be null when rendering a page
-    this.contextOrigin = req ? `${req.protocol}://${req.hostname}` : ''
+    this.contextOrigin = req ? `${req.protocol}://${req.host}` : ''
     this.traceparent = req?.headers.traceparent as string | undefined
   }
 
