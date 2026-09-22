@@ -57,6 +57,12 @@ window.dgEditing = {
   barLabel (bar) {
     return bar.getAttribute('label')
   },
+  newBarPaths () {
+    return Array.from(document.querySelectorAll('dg-new-bar[data-path]')).map(bar => ({
+      path: this.barPath(bar),
+      maxreached: bar.hasAttribute('disabled')
+    }))
+  },
   isDroppable (bar, dragging) {
     const path = this.barPath(bar)
     return !bar.hasAttribute('disabled') && (
@@ -136,14 +142,8 @@ window.dgEditing = {
     const bars = Array.from(document.querySelectorAll('[data-path]'))
     const allpaths = bars.map(this.barPath)
     const editbarpaths = bars.filter(b => b.tagName === 'DG-EDIT-BAR').map(this.barPath)
-    const newbarpaths = bars.filter(b => b.tagName === 'DG-NEW-BAR').map((bar) => {
-      return {
-        path: this.barPath(bar),
-        maxreached: bar.getAttribute('label') === 'Maximum Reached'
-      }
-    })
     window.top.postMessage({ action: 'maymove', allpaths, editbarpaths }, '*')
-    window.top.postMessage({ action: 'maypaste', newbarpaths }, '*')
+    window.top.postMessage({ action: 'maypaste', newbarpaths: this.newBarPaths() }, '*')
   },
   message (e) {
     if (typeof e.data !== 'object') return // in case we receive non-dosgato events from an iframe embedded in the page being edited
@@ -212,14 +212,7 @@ window.dgEditing = {
       }
     } else if ('action' in e.data && e.data.action === 'clipboardactive') {
       // need to send back a list of all the new bars
-      const bars = Array.from(document.querySelectorAll('[data-path]'))
-      const newbarpaths = bars.filter(b => b.tagName === 'DG-NEW-BAR').map((bar) => {
-        return {
-          path: this.barPath(bar),
-          maxreached: bar.getAttribute('label') === 'Maximum Reached'
-        }
-      })
-      window.top.postMessage({ action: 'maypaste', newbarpaths }, '*')
+      window.top.postMessage({ action: 'maypaste', newbarpaths: this.newBarPaths() }, '*')
     } else if ('action' in e.data && e.data.action === 'cancelcopy') {
       const newbars = Array.from(document.querySelectorAll('dg-new-bar[data-path]'))
       for (const bar of newbars) {
