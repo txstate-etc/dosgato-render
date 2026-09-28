@@ -120,8 +120,20 @@ export class TemplateRegistry {
     }
     template.prototype.renderRichText = function (text: string | undefined, opts?: { headerLevel?: number, advanceHeader?: string | null }) {
       if (isBlank(text)) return ''
-      text = replaceLinksInText(text, (this.api as unknown as RenderingAPIClient).resolvedLinks)
+      const api = this.api as unknown as RenderingAPIClient
+      text = replaceLinksInText(text, api.resolvedLinks)
       const $ = load(text, undefined, false)
+      for (const img of $('img[src]')) {
+        const resolved = api.resolvedImages.get(img.attribs.src)
+        if (!resolved) continue
+        img.attribs.srcset = resolved.srcset
+        // sizes="auto" needs the img to have a layout width before it loads, or the browser
+        // will pick the smallest candidate, so always set the asset's natural dimensions
+        img.attribs.width = String(resolved.width)
+        img.attribs.height = String(resolved.height)
+        img.attribs.loading ??= 'lazy'
+        img.attribs.sizes = img.attribs.loading === 'lazy' ? 'auto, 100vw' : '100vw'
+      }
       const headerLevel = (opts?.headerLevel ?? (this.renderCtx.headerLevel as number) ?? 2) + (isNotBlank(opts?.advanceHeader) ? 1 : 0)
       const allHeaders = $('h1,h2,h3,h4,h5,h6')
       for (const header of allHeaders) {

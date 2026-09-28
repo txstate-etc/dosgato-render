@@ -414,6 +414,8 @@ export class RenderingAPIClient implements APIClient {
   contextOrigin: string
   traceparent?: string
   resolvedLinks = new Map<string, string | undefined>()
+  /** srcset and dimensions for image assets found by scanForLinks, keyed by the resolved href of the asset */
+  resolvedImages = new Map<string, { srcset: string, width: number, height: number }>()
   static contextPath = process.env.CONTEXT_PATH ?? ''
 
   constructor (public published: boolean, req?: FastifyRequest) {
@@ -537,9 +539,9 @@ export class RenderingAPIClient implements APIClient {
     } else if (link.type === 'asset') {
       const target = await this.getAssetByLink(link)
       if (!target) {
-        return { href: `${this.assetPrefix()}${link.path ?? '/unknown-asset'}`, title: titleCase(link.path?.split('/').slice(-1)[0] ?? ''), broken: true }
+        return { href: `${this.assetPrefix(rOpts.absolute)}${link.path ?? '/unknown-asset'}`, title: titleCase(link.path?.split('/').slice(-1)[0] ?? ''), broken: true }
       }
-      return { href: this.assetHref(target), title: titleCase(target.name), broken: false }
+      return { href: this.assetHref(target, rOpts.absolute), title: titleCase(target.name), broken: false }
     } else if (link.type === 'url' && link.url?.startsWith('/')) {
       const [pathWithQuery, hash] = link.url.split('#')
       const [path, query] = pathWithQuery.split('?')
@@ -619,8 +621,14 @@ export class RenderingAPIClient implements APIClient {
 
   async scanForLinks (text: string | undefined, opts?: { absolute?: boolean }) {
     const links = extractLinksFromText(text)
-    const resolvedLinks = (await Promise.all(links.map(async l => await this.resolveLink(l, opts))))
-    for (let i = 0; i < links.length; i++) this.resolvedLinks.set(ensureString(links[i]), resolvedLinks[i])
+    await Promise.all(links.map(async l => {
+      const href = await this.resolveLink(l, opts)
+      this.resolvedLinks.set(ensureString(l), href)
+      if (href && l.type === 'asset') {
+        const img = this.getImgAttributesFromAsset(await this.getAssetByLink(l), opts?.absolute)
+        if (img) this.resolvedImages.set(href, pick(img, 'srcset', 'width', 'height'))
+      }
+    }))
   }
 
   assetPrefix (absolute?: boolean) {
