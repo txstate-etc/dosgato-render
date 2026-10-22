@@ -148,7 +148,7 @@ function editModeIncludes () {
  * in the API Server.
  */
 export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
-  void res.type(mimeTypes[extension] ?? 'text/plain')
+  void res.type(mimeTypes[extension] ?? 'text/plain; charset=utf-8')
   const templateByKey = await api.getTemplates()
   const pageComponent = hydratePage(page, editMode, extension, templateByKey)
   pageComponent.logError = function (e: Error) {

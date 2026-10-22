@@ -45,6 +45,13 @@ export class PageTemplate2 extends Page {
           </channel>
         </rss>
       `
+    } else if (extension === 'md') {
+      return `
+        # Sample Markdown Content
+        This is a placeholder for the Markdown variation of the page.
+        – Line with special character
+        – Another line with special character
+      `
     } else return super.renderVariation(extension)
   }
 }
