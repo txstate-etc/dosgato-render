@@ -1,5 +1,5 @@
 import { type PageRecord, Page, type Component, type ResourceProvider, type ComponentData, type CSSBlock, type JSBlock, type FileDeclaration, type SCSSInclude, replaceLinksInText } from '@dosgato/templating'
-import { type Cheerio, load } from 'cheerio'
+import { type Cheerio, type CheerioAPI, load } from 'cheerio'
 import type { Element } from 'domhandler'
 import { transform } from 'esbuild'
 import { readFileSync, statSync } from 'node:fs'
@@ -97,6 +97,28 @@ function processHeaders (isRoot: boolean, currentLevel: number, parentLevel: num
   return headerIndex
 }
 
+const mediaSelector = 'img,svg,video,audio,picture,canvas,iframe,object,embed'
+
+/**
+ * When a table has both a header row and a header column, the editor makes the top-left
+ * corner a <th> even though it is almost always empty. An empty <th> is an accessibility
+ * error, so we turn it into a <td>.
+ */
+function fixEmptyCornerHeaders ($: CheerioAPI) {
+  for (const table of $('table')) {
+    const rows = $(table).find('tr').filter((_, tr) => $(tr).closest('table').is(table))
+    const firstRowCells = rows.first().children('th,td')
+    const corner = firstRowCells.first()
+    if (!corner.is('th') || !firstRowCells.slice(1).is('th')) continue
+    const hasHeaderColumn = rows.slice(1).toArray().some(tr => $(tr).children('th,td').first().is('th'))
+    if (!hasHeaderColumn) continue
+    if (corner.text().trim().length || corner.find(mediaSelector).length) continue
+    const el = corner.get(0)!
+    el.tagName = 'td'
+    delete el.attribs.scope
+  }
+}
+
 /**
  * This registry will get filled with Component and Page objects upon server startup. Each
  * instance of dosgato CMS will have a repo where the server administrator can import all the
@@ -141,6 +163,7 @@ export class TemplateRegistry {
         if (text.length < 1) $(header).remove()
       }
       processHeaders(true, headerLevel, headerLevel - 1, 0, allHeaders, headerLevel)
+      fixEmptyCornerHeaders($)
       return $.html() ?? ''
     }
     template.prototype.renderRawHTML = function (text: string | undefined) {
