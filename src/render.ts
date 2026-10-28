@@ -272,3 +272,5 @@ Component.newBar = (path: string, opts: NewBarOpts) => {
   if (!opts.editMode) return ''
   return `<dg-new-bar data-disableaddtotop="${opts.disableAddToTop ?? false}" ${opts.disabled ? 'disabled ' : ''}class="${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" label="${htmlEncode(opts.label)}"></dg-new-bar>`
 }
+
+Component.areaFull = (path: string) => `<dg-area-full style="display:none" data-path="${htmlEncode(path)}"></dg-area-full>`

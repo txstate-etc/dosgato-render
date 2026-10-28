@@ -19,7 +19,7 @@ window.dgEditing = {
       action: 'select',
       path: this.barPath(barTarget),
       label: this.barLabel(barTarget),
-      maxreached: barTarget.getAttribute('data-maxreached') === 'true' || barTarget.hasAttribute('disabled'),
+      maxreached: barTarget.hasAttribute('disabled') || this.isMaxReached(barTarget),
       mayDelete: !barTarget.hasAttribute('disable-delete'),
       mayEdit: !barTarget.hasAttribute('hide-edit')
     }, '*')
@@ -60,13 +60,12 @@ window.dgEditing = {
   newBarPaths () {
     return Array.from(document.querySelectorAll('dg-new-bar[data-path]')).map(bar => ({
       path: this.barPath(bar),
-      maxreached: bar.hasAttribute('disabled')
+      maxreached: bar.hasAttribute('disabled') || this.isMaxReached(bar)
     }))
   },
   isDroppable (bar, dragging) {
-    const path = this.barPath(bar)
     return !bar.hasAttribute('disabled') && (
-      bar.getAttribute('data-maxreached') !== 'true' || path.split('.').slice(0, -1).join('.') === dragging.split('.').slice(0, -1).join('.')
+      !this.isMaxReached(bar) || this.barAreaPath(bar) === dragging.split('.').slice(0, -1).join('.')
     )
   },
   enter (e) {
@@ -184,7 +183,7 @@ window.dgEditing = {
           const path = b.dataset.path.replace(e.data.selectedPath, '')
           return path.match(/^\.\d+$/)
         })
-        if (barsInArea.length && barsInArea.some(b => b.dataset.maxreached === 'true')) {
+        if (barsInArea.length && barsInArea.some(b => this.isMaxReached(b))) {
           bar = barsInArea[barsInArea.length - 1]
         } else return
       }
@@ -240,6 +239,17 @@ window.dgEditing = {
   pasteAtPath (event) {
     const path = this.path(event.target)
     window.top.postMessage({ action: 'pasteAtPath', path }, '*')
+  },
+  areaIsFull (areaPath) {
+    return !!document.querySelector(`dg-area-full[data-path="${areaPath}"]`)
+  },
+  barAreaPath (bar) {
+    const path = this.barPath(bar)
+    // a new bar's path is the area path; a component's bar is <areapath>.<index>
+    return bar.tagName === 'DG-NEW-BAR' ? path : path.split('.').slice(0, -1).join('.')
+  },
+  isMaxReached (bar) {
+    return bar.getAttribute('data-maxreached') === 'true' || this.areaIsFull(this.barAreaPath(bar))
   }
 }
 
