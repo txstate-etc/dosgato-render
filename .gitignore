@@ -105,3 +105,7 @@ dist
 
 dist
 .DS_Store
+
+# junit output from the docker-compose test harness
+test/test-results/*
+!test/test-results/.gitkeep

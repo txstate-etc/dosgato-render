@@ -4,5 +4,6 @@
     "rootDir": "..",
     "noEmit": true
   },
-  "include": ["."]
+  "include": ["."],
+  "exclude": ["tests", "api-mock", "test-results", "playwright.config.ts"]
 }

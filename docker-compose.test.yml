@@ -1,0 +1,50 @@
+services:
+  # Stands in for the DosGato API: answers the GraphQL queries src/api.ts
+  # sends (matched by operation name) and the /assets and /pages download
+  # endpoints the proxy routes hit. Fixtures in test/api-mock/fixtures.mjs
+  # match the template implementations registered by test/testserver.ts.
+  api-mock:
+    image: node:24-alpine
+    volumes:
+      - ./test/api-mock:/mock:ro
+    command: node /mock/server.mjs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  render:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    # The image's CMD is `npm run watch` (nodemon) for dev; run the test
+    # server once without the watcher.
+    command: ["npm", "start"]
+    depends_on:
+      api-mock:
+        condition: service_healthy
+    environment:
+      DOSGATO_RENDER_JWT_SECRET: test-secret
+      DOSGATO_API_BASE: http://api-mock
+      # makes /health reflect connectivity to the (mock) API
+      DOSGATO_LOCAL_API_BASE: http://api-mock
+      DOSGATO_ADMIN_BASE: http://admin-mock/.admin
+      DOSGATO_ASSET_LIVE_BASE: http://assets.example/assets
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      # first boot compiles the sass/css blocks and loads ts-node
+      start_period: 30s
+
+  testing-container:
+    depends_on:
+      render:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: test/Dockerfile
+    volumes:
+      - ./test/test-results:/test-results

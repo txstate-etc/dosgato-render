@@ -4,8 +4,9 @@ import stylistic from '@stylistic/eslint-plugin'
 const tsFiles = ['**/*.ts']
 
 export default [
-  // browser-side script served to the editing iframe, not part of the typescript project
-  { ignores: ['src/static/**'] },
+  // browser-side script served to the editing iframe, not part of the typescript project,
+  // plus the docker-compose test harness (linted/compiled inside its own container)
+  { ignores: ['src/static/**', 'test/tests/**', 'test/api-mock/**', 'test/test-results/**', 'test/playwright.config.ts'] },
   // FORMATTING RULES
   {
     ...stylistic.configs.recommended,
