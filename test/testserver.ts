@@ -2,6 +2,7 @@ import { RenderingServer } from '../src/index.js'
 import { resourceversion } from '../src/version.js'
 import { ColumnLayoutTemplate } from './components/columnlayout.js'
 import { DocumentsTemplate } from './components/documents.js'
+import { DynOnlyTemplate } from './components/dynonly.js'
 import { HorizontalRuleTemplate } from './components/horizontalrule.js'
 import { LinkTemplate } from './components/link.js'
 import { PanelTemplate } from './components/panel.js'
@@ -30,6 +31,7 @@ await server.start({
     TextImageTemplate,
     ColumnLayoutTemplate,
     DocumentsTemplate,
+    DynOnlyTemplate,
     TeamTemplate,
     TeamMemberTemplate
   ]

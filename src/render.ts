@@ -1,12 +1,14 @@
-import { Component, type PageRecord, type ComponentData, type EditBarOpts, type RenderedComponent, type NewBarOpts, type ContextBase } from '@dosgato/templating'
+import { Component, matchArea, type PageRecord, type ComponentData, type EditBarOpts, type RenderedComponent, type NewBarOpts, type ContextBase } from '@dosgato/templating'
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import type { ParsedUrlQuery } from 'node:querystring'
 import { type RegistryCSSBlock, templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
 import type { RenderingAPIClient } from './api.js'
-import { htmlEncode, clone } from 'txstate-utils'
+import { htmlEncode, clone, keyby } from 'txstate-utils'
 import { mimeTypes } from './mimetypes.js'
 import { stripTrackerParams } from './util.js'
+
+type TemplateAreaInfo = Record<string, { areas: { name: string }[], dynamicAreas: { name: string }[] }>
 
 // recursive helper function to traverse a hydrated page and return a flat array
 // of Component instances
@@ -70,9 +72,21 @@ function renderVariation (extension: string, component: Component) {
   }
 }
 
+// names of the areas to hydrate for a component: every statically declared area (even
+// if the data has nothing in it), followed by any area in the data that matches one of
+// the template's dynamic area prefixes
+function areaNamesToLoad (componentData: ComponentData, templateByKey: TemplateAreaInfo) {
+  const template = templateByKey[componentData.templateKey]
+  const staticNames = template?.areas?.map(a => a.name) ?? []
+  if (!template?.dynamicAreas?.length) return staticNames
+  const staticSet = new Set(staticNames)
+  const dynamicByPrefix = keyby(template.dynamicAreas, 'name')
+  return [...staticNames, ...Object.keys(componentData.areas ?? {}).filter(key => !staticSet.has(key) && matchArea(key, undefined, dynamicByPrefix))]
+}
+
 // recursive helper function for transformation of plain-object componentData
 // into a hydrated instance of the Component class (or a descendent class like Page)
-function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, extension: string, templateByKey: Record<string, { areas: { name: string }[] }>, recursiveInherit?: boolean) {
+function hydrateComponent (componentData: ComponentData, parent: Component, path: string, editMode: boolean, inheritedFrom: string | undefined, extension: string, templateByKey: TemplateAreaInfo, recursiveInherit?: boolean) {
   // find the page implementation in the registry
   const ComponentType = templateRegistry.components.get(componentData.templateKey)
   if (!ComponentType) {
@@ -85,7 +99,7 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
   component.inheritedFrom = inheritedFrom
   if (recursiveInherit) component.editBar = () => ''
   if (inheritedFrom) component.newBar = () => ''
-  for (const key of templateByKey[componentData.templateKey]?.areas?.map(a => a.name) ?? []) {
+  for (const key of areaNamesToLoad(componentData, templateByKey)) {
     const areaComponents: Component[] = []
     for (let i = 0; i < (componentData.areas?.[key]?.length ?? 0); i++) {
       const child = hydrateComponent(componentData.areas![key][i], component, `${path}.areas.${key}.${i}`, editMode, inheritedFrom, extension, templateByKey, !!inheritedFrom)
@@ -109,14 +123,14 @@ function hydrateComponent (componentData: ComponentData, parent: Component, path
 // API, and the output is a Page object, containing many Component objects, all
 // of which are ready with the properties and methods defined in the Component class,
 // that support the rendering process
-function hydratePage (pageData: PageRecord, editMode: boolean, extension: string, templateByKey: Record<string, { areas: { name: string }[] }>) {
+function hydratePage (pageData: PageRecord, editMode: boolean, extension: string, templateByKey: TemplateAreaInfo) {
   // find the page implementation in the registry
   const PageType = templateRegistry.pages.get(pageData.data.templateKey)
   if (!PageType) throw new Error('Unable to render page. Missing template implementation.')
 
   // hydrate the page data into full objects
   const page = new PageType(pageData, editMode, extension)
-  for (const key of templateByKey[pageData.data.templateKey]?.areas?.map(a => a.name) ?? []) {
+  for (const key of areaNamesToLoad(pageData.data, templateByKey)) {
     const areaComponents: Component[] = []
     for (let i = 0; i < (pageData.data.areas?.[key]?.length ?? 0); i++) {
       const child = hydrateComponent(pageData.data.areas![key][i], page, `areas.${key}.${i}`, editMode, undefined, extension, templateByKey)

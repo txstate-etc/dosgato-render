@@ -15,7 +15,7 @@
     "start": "node --no-warnings --enable-source-maps --loader ts-node/esm test/testserver.ts"
   },
   "dependencies": {
-    "@dosgato/templating": "^1.2.4",
+    "@dosgato/templating": "^1.2.6",
     "@fastify/cookie": "^11.0.0",
     "cheerio": "^1.2.0",
     "dataloader-factory": "^4.4.1",

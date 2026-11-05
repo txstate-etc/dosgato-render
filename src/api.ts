@@ -302,13 +302,16 @@ const pageByLinkLoader = new BestMatchLoader<PageLink, PageRecord>({
 })
 
 const templateCache = new Cache(async (_, api: RenderingAPIClient) => {
-  const { templates } = await api.query<{ templates: { key: string, name: string, templateProperties: any, areas: { name: string }[] }[] }>(`
+  const { templates } = await api.query<{ templates: { key: string, name: string, templateProperties: any, areas: { name: string }[], dynamicAreas: { name: string }[] }[] }>(`
     query getTemplateInfo {
       templates {
         key
         name
         templateProperties
         areas {
+          name
+        }
+        dynamicAreas {
           name
         }
       }

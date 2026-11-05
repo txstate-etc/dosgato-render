@@ -13,8 +13,12 @@ export class PageTemplate2 extends Page {
     await sleep(2000)
   }
 
+  newLabel () {
+    return 'Add pagetemplate2 Content'
+  }
+
   render () {
-    return `<!DOCTYPE html><html><head>${this.headContent}</head><body><main>${this.renderComponents('main')}${this.newBar('main')}</main></body></html>`
+    return `<!DOCTYPE html><html><head>${this.headContent}</head><body><main>${this.renderComponents('main')}${this.newBar('main')}${this.renderArea('dyn_abcdefghijk', { newBarOpts: { label: 'Add Content to Dynamic Area' } })}</main></body></html>`
   }
 
   renderVariation (extension: string): string {
