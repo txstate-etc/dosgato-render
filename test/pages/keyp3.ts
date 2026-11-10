@@ -1,4 +1,4 @@
-import { Page, RenderedComponent } from '@dosgato/templating'
+import { Page } from '@dosgato/templating'
 
 export class PageTemplate3 extends Page {
   static templateKey = 'keyp3'
@@ -9,6 +9,6 @@ export class PageTemplate3 extends Page {
   static jsBlocks = new Map()
 
   render () {
-    return `<!DOCTYPE html><html><head>${this.headContent}</head><body><main>${this.renderComponents('main')}${this.newBar('main')}</main></body></html>`
+    return `<!DOCTYPE html><html><head>${this.headContent}</head><body><main>${this.renderArea('main', { defaultContent: '<p class="default-main">This page has no content yet.</p>' })}</main></body></html>`
   }
 }

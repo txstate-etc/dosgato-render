@@ -15,13 +15,15 @@ window.dgEditing = {
     const bars = document.querySelectorAll('[data-path].selected')
     for (const bar of bars) bar.classList.remove('selected')
     barTarget.classList.add('selected')
+    const customize = this.isCustomizeBar(barTarget)
     window.top.postMessage({
       action: 'select',
       path: this.barPath(barTarget),
       label: this.barLabel(barTarget),
       maxreached: barTarget.hasAttribute('disabled') || this.isMaxReached(barTarget),
-      mayDelete: !barTarget.hasAttribute('disable-delete'),
-      mayEdit: !barTarget.hasAttribute('hide-edit')
+      mayDelete: !customize && !barTarget.hasAttribute('disable-delete'),
+      mayEdit: !barTarget.hasAttribute('hide-edit'),
+      ...(customize ? { customize: true, customized: barTarget.hasAttribute('customized') } : {})
     }, '*')
   },
   select (e) {
@@ -47,6 +49,10 @@ window.dgEditing = {
   },
   del (e) {
     this.send('del', e)
+  },
+  restore (e) {
+    e.stopPropagation()
+    this.send('restore', e)
   },
   jump (pageId) {
     window.top.postMessage({ action: 'jump', pageId }, '*')
@@ -78,8 +84,12 @@ window.dgEditing = {
     this._select(this.target(e.target))
   },
   keydown (e) {
+    // customize bars can't be moved and don't accept pastes, so skip cut/copy/paste for them
+    const noClipboard = this.isCustomizeBar(this.target(e.target))
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'x') {
+      if (noClipboard && ['x', 'c', 'v'].includes(e.key)) {
+        // ignore
+      } else if (e.key === 'x') {
         this.send('cut', e)
       } else if (e.key === 'c') {
         this.send('copy', e)
@@ -112,7 +122,7 @@ window.dgEditing = {
     const path = this.barPath(target)
     this.dragging = path
     const bars = Array.from(document.querySelectorAll('[data-path]'))
-    const allpaths = bars.map(this.barPath)
+    const allpaths = bars.filter(b => !this.isCustomizeBar(b)).map(this.barPath)
     window.top.postMessage({ action: 'drag', path, allpaths }, '*')
     for (const bar of bars) bar.dragEnterCount = 0
   },
@@ -139,7 +149,7 @@ window.dgEditing = {
   },
   init () {
     const bars = Array.from(document.querySelectorAll('[data-path]'))
-    const allpaths = bars.map(this.barPath)
+    const allpaths = bars.filter(b => !this.isCustomizeBar(b)).map(this.barPath)
     const editbarpaths = bars.filter(b => b.tagName === 'DG-EDIT-BAR').map(this.barPath)
     window.top.postMessage({ action: 'maymove', allpaths, editbarpaths }, '*')
     window.top.postMessage({ action: 'maypaste', newbarpaths: this.newBarPaths() }, '*')
@@ -155,7 +165,8 @@ window.dgEditing = {
       }, {})
       const paths = Object.keys(barByPath)
       for (const path of paths) {
-        this.droppable[path] = validdrops.has(path) && this.isDroppable(barByPath[path], this.dragging)
+        // customize bars are never drop targets
+        this.droppable[path] = !this.isCustomizeBar(barByPath[path]) && validdrops.has(path) && this.isDroppable(barByPath[path], this.dragging)
       }
       const belowDragging = this.dragging.replace(/\.(\d+)$/, (_, idx) => `.${parseInt(idx) + 1}`)
       for (const path of paths) {
@@ -207,7 +218,7 @@ window.dgEditing = {
       this.movablePaths = e.data.movablePaths
       const bars = Array.from(document.querySelectorAll('[data-path]'))
       for (const bar of bars) {
-        bar.setAttribute('draggable', this.movablePaths.has(this.barPath(bar)))
+        bar.setAttribute('draggable', !this.isCustomizeBar(bar) && this.movablePaths.has(this.barPath(bar)))
       }
     } else if ('action' in e.data && e.data.action === 'clipboardactive') {
       // need to send back a list of all the new bars
@@ -245,8 +256,13 @@ window.dgEditing = {
   },
   barAreaPath (bar) {
     const path = this.barPath(bar)
-    // a new bar's path is the area path; a component's bar is <areapath>.<index>
-    return bar.tagName === 'DG-NEW-BAR' ? path : path.split('.').slice(0, -1).join('.')
+    // a new bar's path is the area path, as is a customize bar's before the area is customized;
+    // a component's bar (including a customized customize bar) is <areapath>.<index>
+    const isAreaBar = bar.tagName === 'DG-NEW-BAR' || (this.isCustomizeBar(bar) && !bar.hasAttribute('customized'))
+    return isAreaBar ? path : path.split('.').slice(0, -1).join('.')
+  },
+  isCustomizeBar (bar) {
+    return bar?.tagName === 'DG-CUSTOMIZE-BAR'
   },
   isMaxReached (bar) {
     return bar.getAttribute('data-maxreached') === 'true' || this.areaIsFull(this.barAreaPath(bar))
@@ -293,6 +309,7 @@ const currentVersion = currentUrl.match(/\/.editing\/(.*?)\/edit\.js/)[1]
 const editingCss = currentUrl.replace(/\.js$/, '.css')
 const addIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Add</title><path fill="currentColor" d="M222 128a6 6 0 0 1-6 6h-82v82a6 6 0 0 1-12 0v-82H40a6 6 0 0 1 0-12h82V40a6 6 0 0 1 12 0v82h82a6 6 0 0 1 6 6Z"/></svg>'
 const editIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Edit</title><path fill="currentColor" d="m222.6 78.1l-44.7-44.7a14 14 0 0 0-19.8 0l-120 120a14.3 14.3 0 0 0-4.1 9.9V208a14 14 0 0 0 14 14h44.7a14.3 14.3 0 0 0 9.9-4.1l120-120a14.1 14.1 0 0 0 0-19.8ZM48.5 160L136 72.5L155.5 92L68 179.5ZM46 208v-33.5L81.5 210H48a2 2 0 0 1-2-2Zm50-.5L76.5 188l87.5-87.5l19.5 19.5ZM214.1 89.4L192 111.5L144.5 64l22.1-22.1a1.9 1.9 0 0 1 2.8 0l44.7 44.7a1.9 1.9 0 0 1 0 2.8Z"/></svg>'
+const eraserIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Restore Default</title><path fill="currentColor" d="m223.57 81.81l-41.38-41.38a22 22 0 0 0-31.12 0L32.43 159.07a22 22 0 0 0 0 31.11l30.07 30.06a6 6 0 0 0 4.24 1.76H216a6 6 0 0 0 0-12h-89.51l97.08-97.08a22 22 0 0 0 0-31.11M109.51 210H69.22l-28.3-28.3a10 10 0 0 1 0-14.15L96 112.48L151.52 168Zm105.57-105.56L160 159.51L104.48 104l55.08-55.07a10 10 0 0 1 14.14 0l41.38 41.37a10 10 0 0 1 0 14.14"/></svg>'
 const moveIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Move</title><path fill="currentColor" d="M160.5 199.5a5.9 5.9 0 0 1 0 8.5l-28.3 28.2a5.8 5.8 0 0 1-8.4 0L95.5 208a6 6 0 0 1 8.5-8.5l18 18V160a6 6 0 0 1 12 0v57.5l18-18a5.9 5.9 0 0 1 8.5 0ZM104 56.5l18-18V96a6 6 0 0 0 12 0V38.5l18 18a6 6 0 0 0 4.3 1.8a5.8 5.8 0 0 0 4.2-1.8a5.9 5.9 0 0 0 0-8.5l-28.3-28.2a5.8 5.8 0 0 0-8.4 0L95.5 48a6 6 0 0 0 8.5 8.5ZM38.5 134H96a6 6 0 0 0 0-12H38.5l18-18a6 6 0 0 0-8.5-8.5l-28.2 28.3a5.8 5.8 0 0 0 0 8.4L48 160.5a6 6 0 0 0 4.3 1.8a5.8 5.8 0 0 0 4.2-1.8a5.9 5.9 0 0 0 0-8.5Zm197.7-10.2L208 95.5a6 6 0 0 0-8.5 8.5l18 18H160a6 6 0 0 0 0 12h57.5l-18 18a5.9 5.9 0 0 0 0 8.5a5.8 5.8 0 0 0 4.2 1.8a6 6 0 0 0 4.3-1.8l28.2-28.3a5.8 5.8 0 0 0 0-8.4Z"/></svg>'
 const trashIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Delete</title><path fill="currentColor" d="M216 50h-42V40a22.1 22.1 0 0 0-22-22h-48a22.1 22.1 0 0 0-22 22v10H40a6 6 0 0 0 0 12h10v146a14 14 0 0 0 14 14h128a14 14 0 0 0 14-14V62h10a6 6 0 0 0 0-12ZM94 40a10 10 0 0 1 10-10h48a10 10 0 0 1 10 10v10H94Zm100 168a2 2 0 0 1-2 2H64a2 2 0 0 1-2-2V62h132Zm-84-104v64a6 6 0 0 1-12 0v-64a6 6 0 0 1 12 0Zm48 0v64a6 6 0 0 1-12 0v-64a6 6 0 0 1 12 0Z"/></svg>'
 const pasteIcon = '<svg version="2.0" aria-hidden="true" viewbox="0 0 256 256"><title>Paste</title><path fill="currentColor" d="M168 152a8 8 0 0 1-8 8H96a8 8 0 0 1 0-16h64a8 8 0 0 1 8 8Zm-8-40H96a8 8 0 0 0 0 16h64a8 8 0 0 0 0-16Zm56-64v168a16 16 0 0 1-16 16H56a16 16 0 0 1-16-16V48a16 16 0 0 1 16-16h36.26a47.92 47.92 0 0 1 71.48 0H200a16 16 0 0 1 16 16ZM96 64h64a32 32 0 0 0-64 0Zm104-16h-26.75A47.93 47.93 0 0 1 176 64v8a8 8 0 0 1-8 8H88a8 8 0 0 1-8-8v-8a47.93 47.93 0 0 1 2.75-16H56v168h144Z"></path></svg>'
@@ -407,6 +424,62 @@ class NewBar extends SharedBar {
   }
 }
 window.customElements.define('dg-new-bar', NewBar)
+
+/**
+ * Customize bars appear in areas rendered with defaultContent and max: 1. Before the area
+ * is customized the bar targets the area and works like a new bar; once customized it targets
+ * the component and offers edit and restore default. Never draggable, never a drop target,
+ * no paste.
+ */
+const customizeBarDefault = document.createElement('template')
+customizeBarDefault.innerHTML = `
+<button onclick="dgEditing.create(event)" onfocus="dgEditing.focus(event)" onkeydown="dgEditing.keydown(event)">
+  <span class="dg-customize-bar-label"></span>${editIcon}
+</button>`
+const customizeBarCustomized = document.createElement('template')
+customizeBarCustomized.innerHTML = `
+<div tabindex="-1" onclick="dgEditing.select(event)" onkeydown="dgEditing.keydown(event)">
+  <span class="dg-edit-bar-label"><span class="dg-customize-bar-label"></span> <span class="dg-customize-bar-hint">(Customized)</span></span>
+  <div class="dg-edit-bar-buttons"></div>
+</div>`
+class CustomizeBar extends SharedBar {
+  static get observedAttributes () { return ['class'] }
+
+  attributeChangedCallback () {
+    if (!this.bar) return
+    this.setClass('dg-customize-bar')
+  }
+
+  init () {
+    const customized = this.hasAttribute('customized')
+    this.tmpl = (customized ? customizeBarCustomized : customizeBarDefault).content.cloneNode(true)
+    this.bar = this.tmpl.querySelector(customized ? 'div' : 'button')
+    this.installCss()
+    const labelText = this.getAttribute('label')
+    const label = this.bar.querySelector('.dg-customize-bar-label')
+    label.innerText = labelText
+
+    if (customized) {
+      const buttons = this.bar.querySelector('.dg-edit-bar-buttons')
+      if (!this.hasAttribute('hide-edit')) {
+        const editButton = document.createElement('button')
+        editButton.addEventListener('click', e => window.dgEditing.edit(e))
+        editButton.addEventListener('focus', e => window.dgEditing.focus(e))
+        editButton.innerHTML = `${editIcon}<span class="visuallyhidden">Edit ${labelText}</span>`
+        buttons.appendChild(editButton)
+      }
+      const restoreButton = document.createElement('button')
+      restoreButton.addEventListener('click', e => window.dgEditing.restore(e))
+      restoreButton.addEventListener('focus', e => window.dgEditing.focus(e))
+      restoreButton.innerHTML = `${eraserIcon}<span class="visuallyhidden">Restore Default ${labelText}</span>`
+      buttons.appendChild(restoreButton)
+    }
+
+    this.attributeChangedCallback()
+    this.shadowRoot.appendChild(this.tmpl)
+  }
+}
+window.customElements.define('dg-customize-bar', CustomizeBar)
 
 const inheritBar = document.createElement('template')
 inheritBar.innerHTML = `

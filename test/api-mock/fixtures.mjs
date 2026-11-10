@@ -119,13 +119,78 @@ export const pages = [
     publishedVersion: 1,
     latestVersion: 1,
     versions: { 1: { templateKey: 'keyp3', areas: { main: [{ templateKey: 'richtext', title: 'Page Not Found', text: '<p>The page you requested could not be found.</p>' }] } } }
+  },
+  {
+    // keyp1's links area renders with defaultContent and max: 1; this page has customized it
+    id: '106',
+    linkId: 'lnk-customized',
+    name: 'customized',
+    path: '/site1/customized',
+    title: 'Customized Links',
+    siteId: '1',
+    pagetreeId: 'pt1',
+    createdAt: created,
+    modifiedAt: modified,
+    publishedAt: published,
+    publishedVersion: 1,
+    latestVersion: 1,
+    versions: {
+      1: {
+        templateKey: 'keyp1',
+        areas: {
+          links: [{ templateKey: 'keyc1', link: JSON.stringify({ type: 'page', linkId: 'lnk-about', siteId: '1', path: '/site1/about' }), text: 'Custom Link' }],
+          main: []
+        }
+      }
+    }
+  },
+  {
+    // keyp3's main area renders with defaultContent and no max; this page leaves it empty
+    id: '107',
+    linkId: 'lnk-empty',
+    name: 'empty',
+    path: '/site1/empty',
+    title: 'Empty Page',
+    siteId: '1',
+    pagetreeId: 'pt1',
+    createdAt: created,
+    modifiedAt: modified,
+    publishedAt: published,
+    publishedVersion: 1,
+    latestVersion: 1,
+    versions: { 1: { templateKey: 'keyp3', areas: { main: [] } } }
+  },
+  {
+    // ownbar prints its own edit bar (renderIncludesEditBar); customizing links with it should
+    // swap that bar for a Customize Bar in place, while the copy in main keeps a normal edit bar
+    id: '108',
+    linkId: 'lnk-ownbar',
+    name: 'ownbar',
+    path: '/site1/ownbar',
+    title: 'Own Bar',
+    siteId: '1',
+    pagetreeId: 'pt1',
+    createdAt: created,
+    modifiedAt: modified,
+    publishedAt: published,
+    publishedVersion: 1,
+    latestVersion: 1,
+    versions: {
+      1: {
+        templateKey: 'keyp1',
+        areas: {
+          links: [{ templateKey: 'ownbar', text: 'Own Bar Link' }],
+          main: [{ templateKey: 'ownbar', text: 'Own Bar Main' }]
+        }
+      }
+    }
   }
 ]
 
 // getTemplateInfo must report each template's areas or the renderer will not
 // hydrate any child components (see hydrateComponent in src/render.ts).
 export const templates = [
-  { key: 'keyp1', name: 'Page Template 1', templateProperties: {}, areas: [{ name: 'main' }] },
+  { key: 'keyp1', name: 'Page Template 1', templateProperties: {}, areas: [{ name: 'links' }, { name: 'main' }] },
   { key: 'keyp2', name: 'Page Template 2', templateProperties: {}, areas: [{ name: 'main' }] },
   { key: 'keyp3', name: 'Page Template 3', templateProperties: {}, areas: [{ name: 'main' }] },
   { key: 'keyp4', name: 'Page Template 4', templateProperties: {}, areas: [{ name: 'main' }] },
@@ -139,6 +204,7 @@ export const templates = [
   { key: 'documents', name: 'Documents', templateProperties: {}, areas: [] },
   { key: 'team', name: 'Team', templateProperties: {}, areas: [{ name: 'members' }] },
   { key: 'teammember', name: 'Team Member', templateProperties: {}, areas: [{ name: 'teams' }] },
+  { key: 'ownbar', name: 'Own Bar', templateProperties: {}, areas: [] },
   { key: 'keyd1', name: 'Data Template 1', templateProperties: {}, areas: [] },
   { key: 'keyd2', name: 'Building', templateProperties: {}, areas: [] }
 ]

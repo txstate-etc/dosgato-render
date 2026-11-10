@@ -1,10 +1,15 @@
 import { Page, type PageForNavigation } from '@dosgato/templating'
 import { htmlEncode, stringify } from 'txstate-utils'
 
-export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], testDataByLink: any, testDataByPath: any }, any> {
+export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], testDataByLink: any, testDataByPath: any, linksDefault: string }, any> {
   static templateKey = 'keyp1'
   static cssBlocks = new Map([
-    ['blanktemplate', { css: 'main { padding: 1em; }' }]
+    ['blanktemplate', { css: `
+      main, aside { padding: 1em; }
+      .default-links { margin: 0; padding: 0; list-style: none; }
+      .default-links li a { text-decoration: none; }
+      .default-links li a:hover { text-decoration: underline; }
+    ` }]
   ])
 
   static jsBlocks = new Map([
@@ -33,7 +38,9 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], te
       this.api.getDataByPath('keyd2', '/global')
     ])
     if (root.id !== this.pageInfo.id) this.registerInherited('main', root.data.areas?.main ?? [], root.id)
-    return { navPages, testDataByLink, testDataByPath }
+    // default content for the links area, standing in for defaults inherited from an ancestor page
+    const linksDefault = '<ul class="default-links"><li><a href="#">Default Link</a></li></ul>'
+    return { navPages, testDataByLink, testDataByPath, linksDefault }
   }
 
   renderNavPage (p: PageForNavigation): string {
@@ -62,6 +69,9 @@ export class PageTemplate1 extends Page<any, { navPages: PageForNavigation[], te
     return `<!DOCTYPE html><html><head>${this.headContent}</head><body><nav>
       ${this.fetched.navPages.map(p => this.renderNavPage(p)).join('')}
     </nav>
+    <aside>
+      ${this.renderArea('links', { max: 1, defaultContent: this.fetched.linksDefault })}
+    </aside>
     <main>
       <table>
         <caption>Data By Path /global</caption>

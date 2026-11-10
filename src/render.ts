@@ -1,4 +1,4 @@
-import { Component, matchArea, type PageRecord, type ComponentData, type EditBarOpts, type RenderedComponent, type NewBarOpts, type ContextBase } from '@dosgato/templating'
+import { Component, matchArea, type PageRecord, type ComponentData, type EditBarOpts, type RenderedComponent, type NewBarOpts, type CustomizeBarOpts, type ContextBase } from '@dosgato/templating'
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import type { ParsedUrlQuery } from 'node:querystring'
 import { type RegistryCSSBlock, templateRegistry } from './registry.js'
@@ -285,6 +285,11 @@ Component.editBar = (path: string, opts: EditBarOpts) => {
 Component.newBar = (path: string, opts: NewBarOpts) => {
   if (!opts.editMode) return ''
   return `<dg-new-bar data-disableaddtotop="${opts.disableAddToTop ?? false}" ${opts.disabled ? 'disabled ' : ''}class="${opts.extraClass ?? ''}" data-path="${htmlEncode(path)}" label="${htmlEncode(opts.label)}"></dg-new-bar>`
+}
+
+Component.customizeBar = (path: string, opts: CustomizeBarOpts) => {
+  if (!opts.editMode) return ''
+  return `<dg-customize-bar class="${htmlEncode(opts.extraClass ?? '')}" data-path="${htmlEncode(path)}" label="${htmlEncode(opts.label)}"${opts.customized ? ' customized' : ''}${opts.hideEdit ? ' hide-edit' : ''}></dg-customize-bar>`
 }
 
 Component.areaFull = (path: string) => `<dg-area-full style="display:none" data-path="${htmlEncode(path)}"></dg-area-full>`

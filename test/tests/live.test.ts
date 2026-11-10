@@ -100,3 +100,34 @@ test('renders the html version of the variation page, including its slow fetch p
   expect(resp.status()).toBe(200)
   expect(await resp.text()).toContain('Feed content lives here.')
 })
+
+test('renders default content without bars on live pages', async ({ request }) => {
+  const home = await (await request.get('/')).text()
+  expect(home).toContain('<ul class="default-links"><li><a href="#">Default Link</a></li></ul>')
+  expect(home).not.toContain('dg-customize-bar')
+
+  const empty = await request.get('/empty.html')
+  expect(empty.status()).toBe(200)
+  const emptyHtml = await empty.text()
+  expect(emptyHtml).toContain('<p class="default-main">This page has no content yet.</p>')
+  expect(emptyHtml).not.toContain('dg-new-bar')
+})
+
+test('renders the customizing component in place of default content on live pages', async ({ request }) => {
+  const resp = await request.get('/customized.html')
+  expect(resp.status()).toBe(200)
+  const html = await resp.text()
+  expect(html).toContain('<a href="/about.html" class="dg-link">Custom Link</a>')
+  expect(html).not.toContain('class="default-links"')
+  expect(html).not.toContain('dg-customize-bar')
+  expect(html).not.toContain('dg-area-full')
+})
+
+test('renders a renderIncludesEditBar component customizing an area without bars', async ({ request }) => {
+  const resp = await request.get('/ownbar.html')
+  expect(resp.status()).toBe(200)
+  const html = await resp.text()
+  expect(html).toContain('<div class="dg-ownbar"><div class="dg-ownbar-header"></div><span>Own Bar Link</span></div>')
+  expect(html).not.toContain('dg-customize-bar')
+  expect(html).not.toContain('dg-edit-bar')
+})

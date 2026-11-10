@@ -5,6 +5,7 @@ import { DocumentsTemplate } from './components/documents.js'
 import { DynOnlyTemplate } from './components/dynonly.js'
 import { HorizontalRuleTemplate } from './components/horizontalrule.js'
 import { LinkTemplate } from './components/link.js'
+import { OwnBarTemplate } from './components/ownbar.js'
 import { PanelTemplate } from './components/panel.js'
 import { QuoteTemplate } from './components/quote.js'
 import { RichTextTemplate } from './components/richtext.js'
@@ -33,7 +34,8 @@ await server.start({
     DocumentsTemplate,
     DynOnlyTemplate,
     TeamTemplate,
-    TeamMemberTemplate
+    TeamMemberTemplate,
+    OwnBarTemplate
   ]
 })
 console.info('service started with resourceversion =', resourceversion)
