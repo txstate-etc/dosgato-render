@@ -5,7 +5,7 @@ import { SignJWT } from 'jose'
 import { Cache, ensureString, groupby, isBlank, isNotBlank, keyby, pick, stringify, titleCase } from 'txstate-utils'
 import { jwtSignKey, resolvePath, shiftPath } from './util.js'
 import { schemaversion } from './version.js'
-import { HttpError } from 'fastify-txstate'
+import { HttpError, trace, withSpan } from 'fastify-txstate'
 import type { IncomingHttpHeaders } from 'node:http'
 
 const SITE_INFO = 'site { id name launched url { path prefix } }'
@@ -767,27 +767,41 @@ export class RenderingAPIClient implements APIClient {
   }
 
   async #query <T = any> (token: string, query: string, variables?: any) {
-    const resp = await fetch(process.env.DOSGATO_API_BASE! + '/graphql', {
-      method: 'POST',
-      mode: 'no-cors',
-      cache: 'no-cache',
-      referrerPolicy: 'no-referrer',
-      body: stringify({ query, variables }),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...(this.traceparent ? { traceparent: this.traceparent } : {})
-      }
-    })
-    if (resp.status >= 400) throw new HttpError(resp.status, await resp.text())
-    const body = await resp.json()
-    if (body.errors?.length) throw new Error(body.errors[0].message)
-    return body.data as T
+    // every query is a POST to the same URL, so the operation name is the only way to tell them apart in a trace
+    const operation = /^\s*(?:query|mutation)\s+(?<name>\w+)/.exec(query)?.groups?.name
+    return await withSpan(operation ? `graphql ${operation}` : 'graphql', async () => {
+      const resp = await fetch(process.env.DOSGATO_API_BASE! + '/graphql', {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        referrerPolicy: 'no-referrer',
+        body: stringify({ query, variables }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...forwardTraceparent(this.traceparent)
+        }
+      })
+      if (resp.status >= 400) throw new HttpError(resp.status, await resp.text())
+      const body = await resp.json()
+      if (body.errors?.length) throw new Error(body.errors[0].message)
+      return body.data as T
+    }, { 'graphql.operation.name': operation })
   }
 
   async query <T = any> (query: string, variables?: any) {
     return await this.#query<T>(renderToken, query, variables)
   }
+}
+
+/**
+ * When telemetry is enabled, fastify-txstate gives each outgoing fetch its own span and sends
+ * that span's traceparent, so the API's work nests under ours. A traceparent we set ourselves
+ * would win and attach the API's spans to our caller instead, so we only forward the incoming
+ * one when there is no active span, to keep the trace id flowing through the logs.
+ */
+function forwardTraceparent (traceparent: string | string[] | undefined): Record<string, string> {
+  return typeof traceparent === 'string' && !trace.getActiveSpan() ? { traceparent } : {}
 }
 
 export async function download (url: string, token: string | undefined, headers: IncomingHttpHeaders) {
@@ -796,7 +810,8 @@ export async function download (url: string, token: string | undefined, headers:
     // must not follow redirects here
     redirect: 'manual',
     headers: {
-      ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match', 'traceparent') as Record<string, string>,
+      ...pick(headers, 'accept', 'user-agent', 'if-modified-since', 'if-none-match') as Record<string, string>,
+      ...forwardTraceparent(headers.traceparent),
       // fetch would otherwise ask for compression and transparently decompress, which
       // would make the API's Content-Length header wrong when we proxy it through
       'accept-encoding': 'identity',

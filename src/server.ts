@@ -123,7 +123,7 @@ export class RenderingServer extends Server {
         const version = published || req.params.version === 'latest' ? undefined : parseInt(req.params.version, 10)
         if (version != null && isNaN(version)) throw new HttpError(404)
         const token = getToken(req)
-        if (!token && !published) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.host}${req.url}`)}`, 302)
+        if (!token && !published) return await res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.host}${req.url}`)}`, 302)
         const api = new this.APIClient<RenderingAPIClient>(!!published, req)
         api.context = 'preview'
         const page = await rescue(api.getPreviewPage(token, path, schemaversion, published, version), { condition: e => e.message.includes('permitted') })
@@ -143,7 +143,7 @@ export class RenderingServer extends Server {
       async (req, res) => {
         const { path, extension } = parsePath(req.params['*'])
         const token = getToken(req)
-        if (!token) void res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.host}${req.url}`)}`, 302)
+        if (!token) return await res.redirect(`${process.env.DOSGATO_ADMIN_BASE!}/preview?url=${encodeURIComponent(`${req.protocol}://${req.host}${req.url}`)}`, 302)
         const api = new this.APIClient<RenderingAPIClient>(false, req)
         api.context = 'preview'
         const fromVersionNum = parseInt(req.params.fromVersion, 10)

@@ -1,5 +1,6 @@
 import { Component, matchArea, type PageRecord, type ComponentData, type EditBarOpts, type RenderedComponent, type NewBarOpts, type CustomizeBarOpts, type ContextBase } from '@dosgato/templating'
 import type { FastifyRequest, FastifyReply } from 'fastify'
+import { recordError, trace } from 'fastify-txstate'
 import type { ParsedUrlQuery } from 'node:querystring'
 import { type RegistryCSSBlock, templateRegistry } from './registry.js'
 import { resourceversion } from './version.js'
@@ -163,14 +164,25 @@ function editModeIncludes () {
  */
 export async function renderPage (api: RenderingAPIClient, req: FastifyRequest, res: FastifyReply, page: PageRecord, extension = 'html', editMode = false) {
   void res.type(mimeTypes[extension] ?? 'text/plain; charset=utf-8')
+  trace.getActiveSpan()?.setAttributes({
+    'dosgato.render.context': api.context,
+    'dosgato.site.id': page.site.id,
+    'dosgato.site.name': page.site.name,
+    'dosgato.pagetree.id': page.pagetree.id,
+    'dosgato.page.id': page.id,
+    'dosgato.page.path': page.path,
+    'dosgato.page.template': page.data.templateKey
+  })
   const templateByKey = await api.getTemplates()
   const pageComponent = hydratePage(page, editMode, extension, templateByKey)
   pageComponent.logError = function (e: Error) {
     this.hadError = true
     req.log.error(`Unrecoverable issue occurred during render of ${this.pageInfo.path}. Page template threw the following error: ${e.stack ?? e.message}`)
+    recordError(e, { 'dosgato.page.path': this.pageInfo.path })
   }
   ;(pageComponent as any).passError = function (e: Error, path: string) {
     req.log.warn(`Recoverable issue occured during render of ${this.pageInfo.path}. Component at ${path} threw the following error: ${e.stack ?? e.message}`)
+    recordError(e, { 'dosgato.page.path': this.pageInfo.path, 'dosgato.component.path': path })
   }
 
   pageComponent.url = new URL(req.url, `${req.protocol}://${req.hostname}`).pathname

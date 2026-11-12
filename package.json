@@ -1,6 +1,6 @@
 {
   "name": "@dosgato/render",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Library providing the rendering server for DosGato CMS.",
   "type": "module",
   "exports": {
@@ -20,7 +20,7 @@
     "cheerio": "^1.2.0",
     "dataloader-factory": "^4.4.1",
     "esbuild": "^0.28.1",
-    "fastify-txstate": "^4.0.3",
+    "fastify-txstate": "^4.4.1",
     "jose": "^6.0.0",
     "mime-types": "^3.0.0",
     "node-htmldiff": "^0.9.4",
